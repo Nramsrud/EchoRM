@@ -286,7 +286,7 @@ projects:
   - id: "0020"
     title: "Release, Catalog, and Publication Artifacts"
     summary: "Package the validated methods, catalogs, audio bundles, and publication-ready outputs for external release."
-    status: planned
+    status: committed
     priority: medium
     release: "v1.0.0"
     files:

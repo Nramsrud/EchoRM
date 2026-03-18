@@ -14,6 +14,7 @@ These documents define the scientific scope and the operational constraints for 
 - `ark/projectlist.md` records the numbered work packages and release sequence.
 - `ark/specs/` contains scoped specifications derived from the authority documents.
 - `ark/plans/` contains implementation plans after a specification is approved.
+- `docs/releases/` contains public release indexes and summaries.
 
 ## Technical Baseline
 
