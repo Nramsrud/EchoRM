@@ -91,7 +91,7 @@ projects:
   - id: "0005"
     title: "Canonical Schemas and Manifest Layer"
     summary: "Define the canonical schemas and manifests that standardize objects, photometry, spectra, lags, and sonifications."
-    status: planned
+    status: committed
     priority: high
     release: "v0.1.0"
     files:

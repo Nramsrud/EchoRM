@@ -1,0 +1,22 @@
+datasets:
+  - name: agn_watch
+    tier: gold
+    provenance: archival_public_release
+    canonical_outputs:
+      objects: canonical/agn_watch/objects.parquet
+      photometry: canonical/agn_watch/photometry.parquet
+      spectra_index: canonical/agn_watch/spectra_index.parquet
+  - name: sdss_rm
+    tier: silver
+    provenance: published_public_release
+    canonical_outputs:
+      objects: canonical/sdss_rm/objects.parquet
+      photometry: canonical/sdss_rm/photometry.parquet
+      spectra_index: canonical/sdss_rm/spectra_index.parquet
+  - name: ztf
+    tier: discovery
+    provenance: public_lightcurve_release
+    canonical_outputs:
+      objects: canonical/ztf/objects.parquet
+      photometry: canonical/ztf/photometry.parquet
+      spectra_index: canonical/ztf/spectra_index.parquet
