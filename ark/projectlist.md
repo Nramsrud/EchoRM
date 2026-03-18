@@ -208,7 +208,7 @@ projects:
   - id: "0014"
     title: "Sonification Core and Echo Ensemble"
     summary: "Implement the stable sonification contract, uncertainty encoding policy, and the first echo-ensemble mapping family."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
