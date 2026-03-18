@@ -182,7 +182,7 @@ projects:
   - id: "0012"
     title: "Consensus Lags and Null Diagnostics"
     summary: "Build the consensus lag object, agreement taxonomy, alias diagnostics, and null controls."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
