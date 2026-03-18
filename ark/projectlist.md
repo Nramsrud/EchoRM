@@ -260,7 +260,7 @@ projects:
   - id: "0018"
     title: "Optimization Infrastructure"
     summary: "Define the benchmark-driven optimization layer for experiments, mappings, and controlled agent programs."
-    status: planned
+    status: committed
     priority: medium
     release: "v0.3.0"
     files:

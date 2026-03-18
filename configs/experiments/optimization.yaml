@@ -1,0 +1,12 @@
+optimization:
+  objective_metric: mean_validation_score
+  search_backend: grid_search
+  trial_budget: 8
+  mutable_fields:
+    - mapping_family
+    - uncertainty_mode
+    - time_scale
+  prohibited_targets:
+    - benchmark_labels
+    - discovery_pool
+    - holdout_ids
