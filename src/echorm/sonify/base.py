@@ -39,3 +39,10 @@ class SonificationPlan:
     config: MappingConfig
     input_channels: tuple[str, ...]
     event_steps: tuple[dict[str, float], ...]
+
+
+SUPPORTED_FAMILIES = (
+    "echo_ensemble",
+    "direct_audification",
+    "token_stream",
+)

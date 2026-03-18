@@ -221,7 +221,7 @@ projects:
   - id: "0015"
     title: "Comparative Mapping Families and Render Bundles"
     summary: "Add the direct-audification and token-stream families plus the required render and provenance bundles."
-    status: planned
+    status: committed
     priority: medium
     release: "v0.2.0"
     files:
