@@ -52,7 +52,7 @@ projects:
   - id: "0002"
     title: "Public Repository Boundary and Documentation Standard"
     summary: "Define the publication boundary and the required editorial standard for all committed documentation."
-    status: planned
+    status: committed
     priority: high
     release: "v0.1.0"
     files:
