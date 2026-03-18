@@ -273,7 +273,7 @@ projects:
   - id: "0019"
     title: "CLAGN and Anomaly Discovery Extension"
     summary: "Extend the validated pipeline into ZTF-scale anomaly ranking, CLAGN transition analysis, and follow-up prioritization."
-    status: planned
+    status: committed
     priority: medium
     release: "v0.3.0"
     files:
