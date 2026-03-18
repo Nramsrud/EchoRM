@@ -1,0 +1,10 @@
+# canonical_name: NGC 3783
+# ra_deg: 174.7571
+# dec_deg: -37.7386
+# redshift: 0.00973
+# survey_id: AGNWATCH-NGC3783
+# line_coverage: Hbeta,Halpha
+# note: preserved legacy spectral comments
+epoch_uid,mjd_obs,wave_min,wave_max,median_snr,calibration_state,spec_path
+ngc3783-e001,50100.0,4200.0,7600.0,18.4,archival,raw/ngc3783-e001.fits
+ngc3783-e002,50102.0,4200.0,7600.0,19.1,recalibrated,raw/ngc3783-e002.fits
