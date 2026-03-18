@@ -234,7 +234,7 @@ projects:
   - id: "0016"
     title: "Synthetic Benchmark Suite"
     summary: "Implement the synthetic truth tables for clean, contaminated, state-change, and failure-case benchmarks."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
