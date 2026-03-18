@@ -1,0 +1,168 @@
+project:
+  name: agn-rm-sonification
+  title: AGN/quasar reverberation sonification with continuum, line, and uncertainty
+    encoding
+  version: '1.0'
+  prepared: '2026-03-16'
+  primary_goal: Build a validated, uncertainty-aware sonification and anomaly-discovery
+    platform for AGN/quasar reverberation mapping, then extend it to changing-look
+    AGN.
+scientific_hypotheses:
+- Uncertainty-aware sonification improves detection of lag/anomaly structure relative
+  to strong visual-only baselines on benchmark tasks.
+- Diffuse-continuum-dominated systems form identifiable anomaly groups in lag/posterior/audio
+  space.
+- Some CLAGN show precursor or transition-time changes in lag hierarchy or line responsivity.
+datasets:
+  gold:
+  - AGN Watch
+  silver:
+  - SDSS-RM final dataset
+  - SDSS-V/BHM RM public data/products
+  discovery:
+  - ZTF DR24+ light curves
+  - DESI/SDSS CLAGN catalogs
+  - Optional NEOWISE time series
+modules:
+- ingest
+- crossmatch
+- calibrate
+- spectra
+- photometry
+- rm
+- simulate
+- sonify
+- embeddings
+- anomaly
+- eval
+- reports
+- cli
+rm_methods:
+- PyCCF
+- pyZDCF
+- JAVELIN
+- PyROA
+- pyPETaL
+- LITMUS
+- MICA2
+- EzTao
+- celerite2
+sonification_mapping_families:
+- echo_ensemble
+- direct_audification_with_overlays
+- feature_token_stream
+uncertainty_encodings:
+- roughness
+- pitch_or_onset_jitter
+- stereo_or_reverb_diffusion
+benchmark_suites:
+- clean_rm
+- disc_like_continuum_hierarchy
+- diffuse_continuum_contaminated
+- state_change_clagn_like
+- failure_cases_sparse_alias_low_snr
+key_metrics:
+  science:
+  - lag_mae
+  - coverage
+  - false_positive_rate
+  - method_agreement
+  - change_point_precision_recall
+  sonification:
+  - audio_only_accuracy
+  - plot_only_accuracy
+  - plot_plus_audio_accuracy
+  - time_to_decision
+  - inter_rater_agreement
+  engineering:
+  - runtime
+  - storage_footprint
+  - reproducibility_rate
+  - test_coverage
+optimization:
+  orchestrators:
+  - Ray Tune
+  - Optuna
+  - Ax
+  agent_frameworks:
+  - OpenHands
+  - mini-SWE-agent_or_SWE-agent
+  llm_program_optimization:
+  - DSPy
+  - MIPROv2
+  - TextGrad
+  pattern: Karpathy-style autoresearch with fixed benchmark suite, small mutation
+    surface, short comparable runs, and keep/discard based on objective metrics.
+phases:
+- id: P0
+  name: foundation
+  deliverables:
+  - repo scaffolding
+  - configs
+  - bibliography
+  - schemas
+- id: P1
+  name: ingestion_and_normalization
+  deliverables:
+  - raw readers
+  - canonical tables
+  - qc scoring
+- id: P2
+  name: rm_baselines
+  deliverables:
+  - method wrappers
+  - consensus lag object
+  - null tests
+- id: P3
+  name: spectral_decomposition
+  deliverables:
+  - line metrics
+  - multi-epoch fits
+  - diagnostic plots
+- id: P4
+  name: sonification_v1
+  deliverables:
+  - mapping families
+  - audio renderers
+  - channel stems
+- id: P5
+  name: synthetic_benchmarks
+  deliverables:
+  - truth tables
+  - contamination/state-change injections
+- id: P6
+  name: validation
+  deliverables:
+  - AGN Watch memo
+  - SDSS-RM leaderboard
+  - mapping ablations
+- id: P7
+  name: autoresearch_loop
+  deliverables:
+  - benchmark-driven tuning
+  - experiment dashboard
+- id: P8
+  name: ztf_clagn_extension
+  deliverables:
+  - anomaly catalog
+  - transition timelines
+  - top candidate memos
+- id: P9
+  name: release
+  deliverables:
+  - methods paper
+  - catalog paper
+  - open-source release
+first_work_package:
+- Set up Snakemake + Hydra + DVC + MLflow.
+- Ingest AGN Watch NGC 5548 and one additional object.
+- Ingest a small SDSS-RM published-lag subset.
+- Wrap PyCCF, JAVELIN, PyROA.
+- Implement echo_ensemble sonification in STRAUSS.
+- Create clean-vs-contaminated synthetic benchmark.
+- Run first blinded plot/audio/plot+audio comparison.
+guardrails:
+- Do not mutate raw data or benchmark labels.
+- Require passing tests for all automated code patches.
+- Treat discovery pool as hold-out; never optimize directly on it.
+- Require multi-method support and human review before any scientific claim.
