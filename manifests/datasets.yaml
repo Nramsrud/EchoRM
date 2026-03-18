@@ -12,6 +12,9 @@ datasets:
   - name: sdss_rm
     tier: silver
     provenance: published_public_release
+    release_id: sdssrm-dr16
+    sample_objects:
+      - RMID101
     canonical_outputs:
       objects: canonical/sdss_rm/objects.parquet
       photometry: canonical/sdss_rm/photometry.parquet

@@ -117,7 +117,7 @@ projects:
   - id: "0007"
     title: "SDSS-RM Silver Ingestion"
     summary: "Ingest the scalable published-lag benchmark set with raw spectra, object manifests, and canonical tables."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
