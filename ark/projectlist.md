@@ -130,7 +130,7 @@ projects:
   - id: "0008"
     title: "ZTF Access Layer"
     summary: "Define the public-light-curve access layer for the discovery pool, with release pinning and query provenance."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:

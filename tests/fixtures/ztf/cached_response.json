@@ -1,0 +1,31 @@
+{
+  "object_uid": "ztf-target-001",
+  "release_id": "ztf-dr22",
+  "bad_flag_policy": "drop-catflags-above-0",
+  "crossmatch_key": "lsid-123",
+  "query_params": {
+    "ra_deg": 214.7341,
+    "dec_deg": 53.4031,
+    "radius_arcsec": 1.0
+  },
+  "rows": [
+    {
+      "mjd_obs": 59001.1,
+      "band": "g",
+      "flux": 1.22,
+      "flux_err": 0.11,
+      "mag": 18.31,
+      "mag_err": 0.05,
+      "catflags": 0
+    },
+    {
+      "mjd_obs": 59003.3,
+      "band": "r",
+      "flux": 1.01,
+      "flux_err": 0.10,
+      "mag": 18.64,
+      "mag_err": 0.06,
+      "catflags": 1
+    }
+  ]
+}

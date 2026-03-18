@@ -22,6 +22,9 @@ datasets:
   - name: ztf
     tier: discovery
     provenance: public_lightcurve_release
+    release_id: ztf-dr22
+    sample_objects:
+      - ztf-target-001
     canonical_outputs:
       objects: canonical/ztf/objects.parquet
       photometry: canonical/ztf/photometry.parquet
