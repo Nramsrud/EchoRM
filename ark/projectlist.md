@@ -78,7 +78,7 @@ projects:
   - id: "0004"
     title: "Workflow and Experiment Stack"
     summary: "Define the workflow, configuration, data-versioning, and experiment-tracking substrate."
-    status: planned
+    status: committed
     priority: high
     release: "v0.1.0"
     files:
