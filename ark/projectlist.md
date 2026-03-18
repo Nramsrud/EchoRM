@@ -169,7 +169,7 @@ projects:
   - id: "0011"
     title: "Model-Based Lag Wrappers"
     summary: "Implement the initial model-based lag methods and the required convergence and uncertainty diagnostics."
-    status: planned
+    status: committed
     priority: medium
     release: "v0.2.0"
     files:

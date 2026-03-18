@@ -22,6 +22,7 @@ def serialize_lag_run(run: LagRun) -> SerializedLagResult:
     config_object = run.runtime_metadata.get("config", {})
     if not isinstance(config_object, dict):
         raise ValueError("lag runtime metadata must expose a configuration mapping")
+    posterior_path = run.diagnostics.get("posterior_path", "")
     config_hash = "|".join(
         f"{key}={value}" for key, value in sorted(config_object.items())
     )
@@ -38,7 +39,7 @@ def serialize_lag_run(run: LagRun) -> SerializedLagResult:
             "significance": run.significance,
             "alias_score": run.alias_score,
             "quality_score": run.quality_score,
-            "posterior_path": "",
+            "posterior_path": str(posterior_path),
             "method_config_hash": config_hash,
         }
     )
