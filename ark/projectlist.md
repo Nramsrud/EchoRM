@@ -156,7 +156,7 @@ projects:
   - id: "0010"
     title: "Classical Lag Wrappers"
     summary: "Implement the classical cross-correlation lag methods and the method-level lag-result interface."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
