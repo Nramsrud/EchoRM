@@ -65,7 +65,7 @@ projects:
   - id: "0003"
     title: "Research Platform Skeleton"
     summary: "Define the repository topology, package layout, and top-level interfaces required by the scientific plan."
-    status: planned
+    status: committed
     priority: high
     release: "v0.1.0"
     files:
