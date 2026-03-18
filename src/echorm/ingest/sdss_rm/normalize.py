@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ...eval.qc import assess_series_quality
 from ...schemas import OBJECT_MANIFEST_SCHEMA, PHOTOMETRY_SCHEMA, SPECTRAL_EPOCH_SCHEMA
 from .manifests import SdssRmObjectBundle
 
@@ -15,6 +16,8 @@ def build_object_manifest(bundle: SdssRmObjectBundle) -> dict[str, object]:
         "dec_deg": bundle.dec_deg,
         "redshift": bundle.redshift,
         "survey_ids": ",".join(bundle.aliases),
+        "alias_group": ",".join(bundle.aliases),
+        "reference_epoch_mjd": min(epoch.mjd_obs for epoch in bundle.epochs),
         "line_coverage": bundle.line_coverage,
         "is_clagn_label": False,
         "tier": "silver",
@@ -48,6 +51,11 @@ def build_spectral_epoch_records(bundle: SdssRmObjectBundle) -> list[dict[str, o
 
 def build_photometry_records(bundle: SdssRmObjectBundle) -> list[dict[str, object]]:
     """Build canonical continuum photometry records."""
+    qc = assess_series_quality(
+        mjd_obs=tuple(epoch.mjd_obs for epoch in bundle.epochs),
+        quality_flags=tuple("ok" for _ in bundle.epochs),
+        line_coverage=bundle.line_coverage,
+    )
     records: list[dict[str, object]] = []
     for index, epoch in enumerate(bundle.epochs):
         record = {
@@ -63,8 +71,14 @@ def build_photometry_records(bundle: SdssRmObjectBundle) -> list[dict[str, objec
             "flux_unit": "1e-17 erg s^-1 cm^-2 A^-1",
             "source_release": bundle.release_id,
             "raw_row_hash": f"{bundle.object_uid}:{index}",
+            "normalization_reference": "raw_flux",
+            "transform_hash": "raw",
             "quality_flag": "published_lag_subset",
             "is_upper_limit": False,
+            "gap_flag": qc.gap_flag,
+            "quality_score": qc.quality_score,
+            "review_priority": qc.review_priority,
+            "normalization_mode": "raw",
         }
         records.append(PHOTOMETRY_SCHEMA.ordered_record(record))
     return records

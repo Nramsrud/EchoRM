@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from ...eval.qc import assess_series_quality
 from ...schemas import PHOTOMETRY_SCHEMA
 from .provenance import ZtfCachedResponse
 
 
 def build_photometry_records(response: ZtfCachedResponse) -> list[dict[str, object]]:
     """Build canonical photometry records from a cached response."""
+    qc = assess_series_quality(
+        mjd_obs=tuple(row.mjd_obs for row in response.rows),
+        quality_flags=tuple(
+            "ok" if row.catflags == 0 else "flagged" for row in response.rows
+        ),
+        line_coverage="continuum_only",
+    )
     records: list[dict[str, object]] = []
     for index, row in enumerate(response.rows):
         record = {
@@ -23,8 +31,14 @@ def build_photometry_records(response: ZtfCachedResponse) -> list[dict[str, obje
             "flux_unit": "ztf_native",
             "source_release": response.provenance.release_id,
             "raw_row_hash": f"{response.object_uid}:{index}",
+            "normalization_reference": "raw_flux",
+            "transform_hash": "raw",
             "quality_flag": f"catflags={row.catflags}",
             "is_upper_limit": False,
+            "gap_flag": qc.gap_flag,
+            "quality_score": qc.quality_score,
+            "review_priority": qc.review_priority,
+            "normalization_mode": "raw",
         }
         records.append(PHOTOMETRY_SCHEMA.ordered_record(record))
     return records

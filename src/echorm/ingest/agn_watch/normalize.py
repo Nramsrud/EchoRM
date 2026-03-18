@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ...eval.qc import assess_series_quality
 from ...schemas import (
     OBJECT_MANIFEST_SCHEMA,
     PHOTOMETRY_SCHEMA,
@@ -26,6 +27,11 @@ def build_object_manifest(
         "dec_deg": float(metadata["dec_deg"]),
         "redshift": float(metadata["redshift"]),
         "survey_ids": metadata["survey_id"],
+        "alias_group": metadata["survey_id"],
+        "reference_epoch_mjd": min(
+            [row.mjd_obs for row in parsed.photometry_rows]
+            or [epoch.mjd_obs for epoch in parsed.spectral_epochs]
+        ),
         "line_coverage": line_coverage,
         "is_clagn_label": False,
         "tier": "gold",
@@ -43,6 +49,11 @@ def build_photometry_records(
     band = parsed.metadata["band"]
     redshift = float(parsed.metadata["redshift"])
     unit = parsed.metadata["unit"]
+    qc = assess_series_quality(
+        mjd_obs=tuple(row.mjd_obs for row in parsed.photometry_rows),
+        quality_flags=tuple(row.quality_flag for row in parsed.photometry_rows),
+        line_coverage="Hbeta",
+    )
     records: list[dict[str, object]] = []
     for index, row in enumerate(parsed.photometry_rows):
         record = {
@@ -58,8 +69,14 @@ def build_photometry_records(
             "flux_unit": unit,
             "source_release": manifest.source_url,
             "raw_row_hash": f"{parsed.object_uid}:{index}",
+            "normalization_reference": "raw_flux",
+            "transform_hash": "raw",
             "quality_flag": row.quality_flag,
             "is_upper_limit": False,
+            "gap_flag": qc.gap_flag,
+            "quality_score": qc.quality_score,
+            "review_priority": qc.review_priority,
+            "normalization_mode": "raw",
         }
         records.append(PHOTOMETRY_SCHEMA.ordered_record(record))
     return records

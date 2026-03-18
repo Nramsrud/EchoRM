@@ -23,8 +23,20 @@ def test_all_schema_columns_are_unique() -> None:
 
 
 def test_photometry_schema_tracks_provenance_and_quality() -> None:
-    assert PHOTOMETRY_SCHEMA.provenance_columns == ("source_release", "raw_row_hash")
-    assert PHOTOMETRY_SCHEMA.quality_columns == ("quality_flag", "is_upper_limit")
+    assert PHOTOMETRY_SCHEMA.provenance_columns == (
+        "source_release",
+        "raw_row_hash",
+        "normalization_reference",
+        "transform_hash",
+    )
+    assert PHOTOMETRY_SCHEMA.quality_columns == (
+        "quality_flag",
+        "is_upper_limit",
+        "gap_flag",
+        "quality_score",
+        "review_priority",
+        "normalization_mode",
+    )
 
 
 def test_lag_schema_reports_missing_columns() -> None:
@@ -49,8 +61,14 @@ def test_schema_projects_records_into_canonical_order() -> None:
         "flux_unit": "mJy",
         "source_release": "agn_watch_legacy",
         "raw_row_hash": "abc123",
+        "normalization_reference": "raw_flux",
+        "transform_hash": "raw",
         "quality_flag": "ok",
         "is_upper_limit": False,
+        "gap_flag": False,
+        "quality_score": 1.0,
+        "review_priority": "low",
+        "normalization_mode": "raw",
     }
     ordered = PHOTOMETRY_SCHEMA.ordered_record(record)
     assert tuple(ordered) == PHOTOMETRY_SCHEMA.all_columns

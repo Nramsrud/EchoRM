@@ -13,6 +13,8 @@ OBJECT_MANIFEST_SCHEMA = TableSchema(
         "dec_deg",
         "redshift",
         "survey_ids",
+        "alias_group",
+        "reference_epoch_mjd",
         "line_coverage",
         "is_clagn_label",
         "tier",

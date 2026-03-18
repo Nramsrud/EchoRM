@@ -143,7 +143,7 @@ projects:
   - id: "0009"
     title: "Crossmatch, Time Standards, and Quality Control"
     summary: "Define the shared calibration, time-standard, and quality-control layer across all surveys."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:

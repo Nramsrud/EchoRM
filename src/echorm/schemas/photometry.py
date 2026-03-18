@@ -18,6 +18,18 @@ PHOTOMETRY_SCHEMA = TableSchema(
         "mag_err",
         "flux_unit",
     ),
-    provenance_columns=("source_release", "raw_row_hash"),
-    quality_columns=("quality_flag", "is_upper_limit"),
+    provenance_columns=(
+        "source_release",
+        "raw_row_hash",
+        "normalization_reference",
+        "transform_hash",
+    ),
+    quality_columns=(
+        "quality_flag",
+        "is_upper_limit",
+        "gap_flag",
+        "quality_score",
+        "review_priority",
+        "normalization_mode",
+    ),
 )
