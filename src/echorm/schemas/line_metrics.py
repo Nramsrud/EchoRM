@@ -24,5 +24,8 @@ LINE_METRICS_SCHEMA = TableSchema(
         "kurtosis",
         "blue_red_asymmetry",
         "fit_model_id",
+        "continuum_variant",
+        "calibration_confidence",
+        "residual_rms",
     ),
 )

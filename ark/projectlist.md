@@ -195,7 +195,7 @@ projects:
   - id: "0013"
     title: "Spectral Decomposition and Line Metrics"
     summary: "Implement multi-epoch spectral decomposition, line extraction, and fit diagnostics."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
