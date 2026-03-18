@@ -247,7 +247,7 @@ projects:
   - id: "0017"
     title: "Validation and Blinded Efficacy"
     summary: "Validate the pipeline on benchmark objects and run blinded plot/audio/plot+audio efficacy testing."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
