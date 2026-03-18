@@ -1,0 +1,37 @@
+{
+  "release_id": "sdssrm-dr16",
+  "literature_label": "Grier et al. 2017",
+  "object_uid": "sdssrm-101",
+  "canonical_name": "SDSS RM 101",
+  "aliases": ["RMID101", "J141856.19+532411.3"],
+  "redshift": 0.456,
+  "ra_deg": 214.7341,
+  "dec_deg": 53.4031,
+  "line_coverage": "Hbeta,MgII",
+  "epochs": [
+    {
+      "epoch_uid": "sdssrm-101-e001",
+      "mjd_obs": 57001.0,
+      "wave_min": 3650.0,
+      "wave_max": 9250.0,
+      "median_snr": 12.4,
+      "calibration_state": "pipeline",
+      "raw_spec_path": "raw/sdssrm/dr16/sdssrm-101-e001.fits",
+      "continuum_band": "g",
+      "continuum_flux": 2.31,
+      "continuum_flux_err": 0.14
+    },
+    {
+      "epoch_uid": "sdssrm-101-e002",
+      "mjd_obs": 57004.0,
+      "wave_min": 3650.0,
+      "wave_max": 9250.0,
+      "median_snr": 12.8,
+      "calibration_state": "pipeline",
+      "raw_spec_path": "raw/sdssrm/dr16/sdssrm-101-e002.fits",
+      "continuum_band": "g",
+      "continuum_flux": 2.46,
+      "continuum_flux_err": 0.13
+    }
+  ]
+}

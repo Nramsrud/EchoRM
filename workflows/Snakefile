@@ -1,0 +1,7 @@
+include: "rules/common.smk"
+include: "rules/optimization.smk"
+
+rule all:
+    input:
+        "artifacts/manifests/bootstrap-manifest.txt",
+        "artifacts/optimization/plan.ok"

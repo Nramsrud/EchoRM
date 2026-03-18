@@ -1,0 +1,7 @@
+stages:
+  benchmark_manifest:
+    cmd: python3 -m echorm.cli.workflow --root . manifest
+    deps:
+      - manifests/datasets.yaml
+    outs:
+      - artifacts/manifests/bootstrap-manifest.txt

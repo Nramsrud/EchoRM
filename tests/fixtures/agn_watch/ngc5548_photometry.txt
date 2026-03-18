@@ -1,0 +1,10 @@
+# canonical_name: NGC 5548
+# ra_deg: 214.4981
+# dec_deg: 25.1368
+# redshift: 0.017175
+# survey_id: AGNWATCH-NGC5548
+# band: 5100A
+# unit: mJy
+# note: preserved legacy continuum comments
+50000.0 1.20 0.10 ok
+50001.5 1.35 0.11 review
