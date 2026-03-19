@@ -1,0 +1,10 @@
+# canonical_name: NGC 3783
+# ra_deg: 174.7571
+# dec_deg: -37.7386
+# redshift: 0.00973
+# survey_id: AGNWATCH-NGC3783
+# band: 5100A
+# unit: mJy
+# note: preserved legacy continuum comments
+50100.0 1.02 0.08 ok
+50102.0 1.24 0.09 ok

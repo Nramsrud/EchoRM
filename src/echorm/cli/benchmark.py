@@ -6,6 +6,14 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
+from ..eval.broad_validation import (
+    materialize_continuum_validation_package,
+    materialize_corpus_freeze_package,
+    materialize_efficacy_benchmark_package,
+    materialize_gold_validation_package,
+    materialize_silver_validation_package,
+)
+from ..eval.claims_audit import materialize_claims_audit
 from ..eval.first_benchmark import materialize_first_benchmark_package
 from ..eval.readiness import materialize_benchmark_readiness_run
 
@@ -47,6 +55,30 @@ def build_parser() -> argparse.ArgumentParser:
         "first-benchmark",
         help="Materialize the first bounded benchmark package.",
     )
+    subparsers.add_parser(
+        "corpus-freeze",
+        help="Materialize the frozen benchmark corpus and multi-method package.",
+    )
+    subparsers.add_parser(
+        "gold-validation",
+        help="Materialize the gold benchmark validation package.",
+    )
+    subparsers.add_parser(
+        "silver-validation",
+        help="Materialize the silver benchmark validation package.",
+    )
+    subparsers.add_parser(
+        "continuum-validation",
+        help="Materialize the continuum benchmark validation package.",
+    )
+    subparsers.add_parser(
+        "efficacy-benchmark",
+        help="Materialize the sonification efficacy benchmark package.",
+    )
+    subparsers.add_parser(
+        "claims-audit",
+        help="Materialize the cross-package broad-validation claims audit.",
+    )
     return parser
 
 
@@ -60,6 +92,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.artifact_root.is_absolute()
         else (repo_root / args.artifact_root)
     ).resolve()
+    broad_validation_profile = (
+        "broad_validation" if args.profile == "baseline" else args.profile
+    )
     if args.command == "readiness":
         index_path = materialize_benchmark_readiness_run(
             repo_root=repo_root,
@@ -80,6 +115,59 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_id=args.run_id,
             profile=profile,
             seed=args.seed,
+        )
+        print(index_path)
+        return 0
+    if args.command == "corpus-freeze":
+        index_path = materialize_corpus_freeze_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=broad_validation_profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "gold-validation":
+        index_path = materialize_gold_validation_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=broad_validation_profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "silver-validation":
+        index_path = materialize_silver_validation_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=broad_validation_profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "continuum-validation":
+        index_path = materialize_continuum_validation_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=broad_validation_profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "efficacy-benchmark":
+        index_path = materialize_efficacy_benchmark_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=broad_validation_profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "claims-audit":
+        index_path = materialize_claims_audit(
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=broad_validation_profile,
         )
         print(index_path)
         return 0

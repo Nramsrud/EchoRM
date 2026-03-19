@@ -43,6 +43,20 @@ def load_case_detail(
     return payload
 
 
+def load_group_detail(
+    artifact_root: Path,
+    run_id: str,
+    group: str,
+    item_id: str,
+) -> dict[str, object]:
+    """Load one grouped benchmark payload."""
+    path = artifact_root / run_id / group / item_id / "index.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("group detail must be a mapping")
+    return payload
+
+
 def _html_page(title: str, body: str) -> str:
     return (
         "<!doctype html>"
@@ -99,6 +113,18 @@ def render_run_detail_html(run: dict[str, object]) -> str:
     verification = run.get("verification", [])
     tools = run.get("tools", [])
     cases = run.get("cases", [])
+    objects = run.get("objects", [])
+    methods = run.get("methods", [])
+    nulls = run.get("nulls", [])
+    reruns = run.get("reruns", [])
+    tasks = run.get("tasks", [])
+    cohorts = run.get("cohorts", [])
+    comparisons = run.get("comparisons", [])
+    audit_conditions = run.get("audit_conditions", [])
+    literature_table = run.get("literature_table", [])
+    failure_modes = run.get("failure_modes", [])
+    responses = run.get("responses", [])
+    confusion_summary = run.get("confusion_summary", {})
     warnings_object = run.get("warnings", [])
     warnings = (
         [str(value) for value in warnings_object]
@@ -155,6 +181,118 @@ def render_run_detail_html(run: dict[str, object]) -> str:
             "</tr>"
         )
 
+    object_rows = []
+    for item in objects if isinstance(objects, list) else []:
+        if not isinstance(item, dict):
+            continue
+        object_id = escape(str(item.get("object_uid", "")))
+        object_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/objects/{object_id}'>{object_id}</a></td>"
+            f"<td>{escape(str(item.get('tier', '')))}</td>"
+            f"<td>{escape(str(item.get('evidence_level', '')))}</td>"
+            f"<td>{escape(str(item.get('quality_flag', '')))}</td>"
+            f"<td>{escape(str(item.get('primary_metric', '')))}</td>"
+            "</tr>"
+        )
+
+    method_rows = []
+    for item in methods if isinstance(methods, list) else []:
+        if not isinstance(item, dict):
+            continue
+        method_id = escape(str(item.get("method_id", "")))
+        method_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/methods/{method_id}'>{method_id}</a></td>"
+            f"<td>{escape(str(item.get('object_uid', '')))}</td>"
+            f"<td>{escape(str(item.get('lag_median', '')))}</td>"
+            f"<td>{escape(str(item.get('runtime_sec', '')))}</td>"
+            "</tr>"
+        )
+
+    null_rows = []
+    for item in nulls if isinstance(nulls, list) else []:
+        if not isinstance(item, dict):
+            continue
+        null_id = escape(str(item.get("null_id", "")))
+        null_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/nulls/{null_id}'>{null_id}</a></td>"
+            f"<td>{escape(str(item.get('object_uid', '')))}</td>"
+            f"<td>{escape(str(item.get('null_kind', '')))}</td>"
+            f"<td>{escape(str(item.get('method_count', '')))}</td>"
+            "</tr>"
+        )
+
+    rerun_rows = []
+    for item in reruns if isinstance(reruns, list) else []:
+        if not isinstance(item, dict):
+            continue
+        rerun_id = escape(str(item.get("rerun_id", "")))
+        rerun_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/reruns/{rerun_id}'>{rerun_id}</a></td>"
+            f"<td>{escape(str(item.get('metric_name', '')))}</td>"
+            f"<td>{escape(str(item.get('max_primary_metric_drift', '')))}</td>"
+            f"<td>{escape(str(item.get('passed', '')))}</td>"
+            "</tr>"
+        )
+
+    task_rows = []
+    for item in tasks if isinstance(tasks, list) else []:
+        if not isinstance(item, dict):
+            continue
+        task_id = escape(str(item.get("task_id", "")))
+        task_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/tasks/{task_id}'>{task_id}</a></td>"
+            f"<td>{escape(str(item.get('mode', '')))}</td>"
+            f"<td>{escape(str(item.get('benchmark_type', '')))}</td>"
+            "</tr>"
+        )
+
+    cohort_rows = []
+    for item in cohorts if isinstance(cohorts, list) else []:
+        if not isinstance(item, dict):
+            continue
+        cohort_id = escape(str(item.get("cohort_id", "")))
+        cohort_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/cohorts/{cohort_id}'>{cohort_id}</a></td>"
+            f"<td>{escape(str(item.get('accuracy', '')))}</td>"
+            f"<td>{escape(str(item.get('time_to_decision_sec', '')))}</td>"
+            f"<td>{escape(str(item.get('training_level', '')))}</td>"
+            "</tr>"
+        )
+
+    comparison_rows = []
+    for item in comparisons if isinstance(comparisons, list) else []:
+        if not isinstance(item, dict):
+            continue
+        keys = sorted(item)
+        cells = "".join(
+            f"<td>{escape(str(item.get(key, '')))}</td>" for key in keys[:4]
+        )
+        comparison_rows.append(f"<tr>{cells}</tr>")
+
+    audit_rows = []
+    for item in audit_conditions if isinstance(audit_conditions, list) else []:
+        if not isinstance(item, dict):
+            continue
+        audit_rows.append(
+            "<tr>"
+            f"<td>{escape(str(item.get('condition', '')))}</td>"
+            f"<td>{escape(str(item.get('ok', '')))}</td>"
+            f"<td>{escape(str(item.get('detail', '')))}</td>"
+            "</tr>"
+        )
+
     banner_class = "banner warn" if run.get("readiness") != "ready" else "banner"
     run_id = escape(str(run.get("run_id", "")))
     scope_line = (
@@ -182,6 +320,42 @@ def render_run_detail_html(run: dict[str, object]) -> str:
         "<table><thead><tr><th>Case</th><th>Type</th><th>Evidence</th>"
         "<th>Quality</th></tr></thead>"
         f"<tbody>{''.join(case_rows)}</tbody></table>"
+        "<h2>Objects</h2>"
+        "<table><thead><tr><th>Object</th><th>Tier</th><th>Evidence</th>"
+        "<th>Quality</th><th>Primary Metric</th></tr></thead>"
+        f"<tbody>{''.join(object_rows)}</tbody></table>"
+        "<h2>Methods</h2>"
+        "<table><thead><tr><th>Method</th><th>Object</th><th>Lag</th>"
+        "<th>Runtime</th></tr></thead>"
+        f"<tbody>{''.join(method_rows)}</tbody></table>"
+        "<h2>Null Suites</h2>"
+        "<table><thead><tr><th>Null</th><th>Object</th><th>Kind</th>"
+        "<th>Method Count</th></tr></thead>"
+        f"<tbody>{''.join(null_rows)}</tbody></table>"
+        "<h2>Reruns</h2>"
+        "<table><thead><tr><th>Rerun</th><th>Metric</th><th>Drift</th>"
+        "<th>Passed</th></tr></thead>"
+        f"<tbody>{''.join(rerun_rows)}</tbody></table>"
+        "<h2>Tasks</h2>"
+        "<table><thead><tr><th>Task</th><th>Mode</th><th>Type</th></tr></thead>"
+        f"<tbody>{''.join(task_rows)}</tbody></table>"
+        "<h2>Cohorts</h2>"
+        "<table><thead><tr><th>Cohort</th><th>Accuracy</th>"
+        "<th>Time To Decision</th><th>Training Level</th></tr></thead>"
+        f"<tbody>{''.join(cohort_rows)}</tbody></table>"
+        "<h2>Comparisons</h2>"
+        f"<table><tbody>{''.join(comparison_rows)}</tbody></table>"
+        "<h2>Literature Table</h2>"
+        f"<pre>{escape(json.dumps(literature_table, indent=2, sort_keys=True))}</pre>"
+        "<h2>Failure Modes</h2>"
+        f"<pre>{escape(json.dumps(failure_modes, indent=2, sort_keys=True))}</pre>"
+        "<h2>Responses</h2>"
+        f"<pre>{escape(json.dumps(responses, indent=2, sort_keys=True))}</pre>"
+        "<h2>Confusion Summary</h2>"
+        f"<pre>{escape(json.dumps(confusion_summary, indent=2, sort_keys=True))}</pre>"
+        "<h2>Claims Audit</h2>"
+        "<table><thead><tr><th>Condition</th><th>OK</th><th>Detail</th></tr></thead>"
+        f"<tbody>{''.join(audit_rows)}</tbody></table>"
         f"<p><a href='/files/{run_id}/summary.md'>Run summary file</a></p>"
         f"<p><a href='/files/{run_id}/dossier.md'>Benchmark dossier</a></p>"
     )
@@ -208,6 +382,35 @@ def render_case_detail_html(run_id: str, case: dict[str, object]) -> str:
         f"<pre>{escape(json.dumps(case, indent=2, sort_keys=True))}</pre>"
     )
     return _html_page(f"Case {case_id}", body)
+
+
+def render_group_detail_html(
+    *,
+    run_id: str,
+    group: str,
+    payload: dict[str, object],
+    item_id_key: str,
+) -> str:
+    """Render one grouped detail page."""
+    item_id = str(payload.get(item_id_key, ""))
+    artifact_paths = payload.get("artifact_paths", {})
+    file_links = []
+    artifact_items = (
+        artifact_paths.items() if isinstance(artifact_paths, dict) else []
+    )
+    for label, path in artifact_items:
+        file_links.append(
+            f"<li><a href='/files/{escape(str(path))}'>{escape(str(label))}</a></li>"
+        )
+    body = (
+        f"<p><a href='/runs/{escape(run_id)}'>Back to run</a> | "
+        f"<a href='/api/runs/{escape(run_id)}/{escape(group)}/"
+        f"{escape(item_id)}'>JSON</a></p>"
+        f"<h1>{escape(group[:-1].capitalize())} {escape(item_id)}</h1>"
+        f"<ul>{''.join(file_links)}</ul>"
+        f"<pre>{escape(json.dumps(payload, indent=2, sort_keys=True))}</pre>"
+    )
+    return _html_page(f"{group[:-1].capitalize()} {item_id}", body)
 
 
 def _safe_file_path(artifact_root: Path, relative_path: str) -> Path:
@@ -283,6 +486,19 @@ def build_review_handler(artifact_root: Path) -> type[BaseHTTPRequestHandler]:
                     _, _, run_id, _, case_id = segments
                     self._send_json(load_case_detail(artifact_root, run_id, case_id))
                     return
+                if len(segments) == 5 and segments[3] in {
+                    "objects",
+                    "methods",
+                    "nulls",
+                    "reruns",
+                    "tasks",
+                    "cohorts",
+                }:
+                    _, _, run_id, group, item_id = segments
+                    self._send_json(
+                        load_group_detail(artifact_root, run_id, group, item_id)
+                    )
+                    return
             if path.startswith("/runs/"):
                 segments = [segment for segment in path.split("/") if segment]
                 if len(segments) == 2:
@@ -299,6 +515,34 @@ def build_review_handler(artifact_root: Path) -> type[BaseHTTPRequestHandler]:
                         body=render_case_detail_html(
                             run_id,
                             load_case_detail(artifact_root, run_id, case_id),
+                        ),
+                        content_type="text/html; charset=utf-8",
+                    )
+                    return
+                if len(segments) == 4 and segments[2] in {
+                    "objects",
+                    "methods",
+                    "nulls",
+                    "reruns",
+                    "tasks",
+                    "cohorts",
+                }:
+                    _, run_id, group, item_id = segments
+                    item = load_group_detail(artifact_root, run_id, group, item_id)
+                    item_id_key = {
+                        "objects": "object_uid",
+                        "methods": "method_id",
+                        "nulls": "null_id",
+                        "reruns": "rerun_id",
+                        "tasks": "task_id",
+                        "cohorts": "cohort_id",
+                    }[group]
+                    self._send_text(
+                        body=render_group_detail_html(
+                            run_id=run_id,
+                            group=group,
+                            payload=item,
+                            item_id_key=item_id_key,
                         ),
                         content_type="text/html; charset=utf-8",
                     )

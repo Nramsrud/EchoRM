@@ -1,0 +1,162 @@
+{
+  "release_id": "sdssrm-dr16",
+  "literature_label": "Grier et al. 2017 curated slice",
+  "objects": [
+    {
+      "release_id": "sdssrm-dr16",
+      "literature_label": "Grier et al. 2017",
+      "object_uid": "sdssrm-101",
+      "canonical_name": "SDSS RM 101",
+      "aliases": ["RMID101", "J141856.19+532411.3"],
+      "redshift": 0.456,
+      "ra_deg": 214.7341,
+      "dec_deg": 53.4031,
+      "line_coverage": "Hbeta,MgII",
+      "literature_lag_day": 2.3,
+      "benchmark_regime": "dense_hbeta",
+      "epochs": [
+        {
+          "epoch_uid": "sdssrm-101-e001",
+          "mjd_obs": 57001.0,
+          "wave_min": 3650.0,
+          "wave_max": 9250.0,
+          "median_snr": 12.4,
+          "calibration_state": "pipeline",
+          "raw_spec_path": "raw/sdssrm/dr16/sdssrm-101-e001.fits",
+          "continuum_band": "g",
+          "continuum_flux": 2.31,
+          "continuum_flux_err": 0.14
+        },
+        {
+          "epoch_uid": "sdssrm-101-e002",
+          "mjd_obs": 57004.0,
+          "wave_min": 3650.0,
+          "wave_max": 9250.0,
+          "median_snr": 12.8,
+          "calibration_state": "pipeline",
+          "raw_spec_path": "raw/sdssrm/dr16/sdssrm-101-e002.fits",
+          "continuum_band": "g",
+          "continuum_flux": 2.46,
+          "continuum_flux_err": 0.13
+        }
+      ]
+    },
+    {
+      "release_id": "sdssrm-dr16",
+      "literature_label": "Grier et al. 2017",
+      "object_uid": "sdssrm-215",
+      "canonical_name": "SDSS RM 215",
+      "aliases": ["RMID215", "J141944.08+531602.5"],
+      "redshift": 0.612,
+      "ra_deg": 214.9337,
+      "dec_deg": 53.2674,
+      "line_coverage": "Hbeta",
+      "literature_lag_day": 3.1,
+      "benchmark_regime": "moderate_hbeta",
+      "epochs": [
+        {
+          "epoch_uid": "sdssrm-215-e001",
+          "mjd_obs": 57002.0,
+          "wave_min": 3650.0,
+          "wave_max": 9250.0,
+          "median_snr": 10.9,
+          "calibration_state": "pipeline",
+          "raw_spec_path": "raw/sdssrm/dr16/sdssrm-215-e001.fits",
+          "continuum_band": "g",
+          "continuum_flux": 1.91,
+          "continuum_flux_err": 0.16
+        },
+        {
+          "epoch_uid": "sdssrm-215-e002",
+          "mjd_obs": 57006.0,
+          "wave_min": 3650.0,
+          "wave_max": 9250.0,
+          "median_snr": 11.4,
+          "calibration_state": "pipeline",
+          "raw_spec_path": "raw/sdssrm/dr16/sdssrm-215-e002.fits",
+          "continuum_band": "g",
+          "continuum_flux": 2.08,
+          "continuum_flux_err": 0.15
+        }
+      ]
+    },
+    {
+      "release_id": "sdssrm-dr16",
+      "literature_label": "Grier et al. 2017",
+      "object_uid": "sdssrm-321",
+      "canonical_name": "SDSS RM 321",
+      "aliases": ["RMID321", "J142015.50+531120.1"],
+      "redshift": 1.142,
+      "ra_deg": 215.0646,
+      "dec_deg": 53.1889,
+      "line_coverage": "MgII",
+      "literature_lag_day": 4.7,
+      "benchmark_regime": "mgii_alias_risk",
+      "epochs": [
+        {
+          "epoch_uid": "sdssrm-321-e001",
+          "mjd_obs": 57003.0,
+          "wave_min": 3650.0,
+          "wave_max": 9250.0,
+          "median_snr": 9.8,
+          "calibration_state": "pipeline",
+          "raw_spec_path": "raw/sdssrm/dr16/sdssrm-321-e001.fits",
+          "continuum_band": "r",
+          "continuum_flux": 1.42,
+          "continuum_flux_err": 0.18
+        },
+        {
+          "epoch_uid": "sdssrm-321-e002",
+          "mjd_obs": 57008.0,
+          "wave_min": 3650.0,
+          "wave_max": 9250.0,
+          "median_snr": 10.1,
+          "calibration_state": "pipeline",
+          "raw_spec_path": "raw/sdssrm/dr16/sdssrm-321-e002.fits",
+          "continuum_band": "r",
+          "continuum_flux": 1.58,
+          "continuum_flux_err": 0.17
+        }
+      ]
+    },
+    {
+      "release_id": "sdssrm-dr16",
+      "literature_label": "Grier et al. 2017",
+      "object_uid": "sdssrm-442",
+      "canonical_name": "SDSS RM 442",
+      "aliases": ["RMID442", "J142102.71+531944.6"],
+      "redshift": 0.738,
+      "ra_deg": 215.2613,
+      "dec_deg": 53.3291,
+      "line_coverage": "Hbeta,CIV",
+      "literature_lag_day": 2.8,
+      "benchmark_regime": "mixed_line_cadence",
+      "epochs": [
+        {
+          "epoch_uid": "sdssrm-442-e001",
+          "mjd_obs": 57001.5,
+          "wave_min": 3650.0,
+          "wave_max": 9250.0,
+          "median_snr": 11.1,
+          "calibration_state": "pipeline",
+          "raw_spec_path": "raw/sdssrm/dr16/sdssrm-442-e001.fits",
+          "continuum_band": "g",
+          "continuum_flux": 2.02,
+          "continuum_flux_err": 0.12
+        },
+        {
+          "epoch_uid": "sdssrm-442-e002",
+          "mjd_obs": 57007.5,
+          "wave_min": 3650.0,
+          "wave_max": 9250.0,
+          "median_snr": 11.7,
+          "calibration_state": "pipeline",
+          "raw_spec_path": "raw/sdssrm/dr16/sdssrm-442-e002.fits",
+          "continuum_band": "g",
+          "continuum_flux": 2.17,
+          "continuum_flux_err": 0.11
+        }
+      ]
+    }
+  ]
+}

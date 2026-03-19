@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -417,9 +417,26 @@ def assemble_benchmark_readiness_run(
     return run, tuple(case_payloads), tuple(render_bundles)
 
 
-def _write_json(path: Path, payload: dict[str, object]) -> None:
+def _write_json(path: Path, payload: Mapping[str, object]) -> None:
+    def _json_compatible(value: object) -> object:
+        if isinstance(value, complex):
+            return {
+                "real": round(value.real, 6),
+                "imag": round(value.imag, 6),
+            }
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, dict):
+            return {
+                str(key): _json_compatible(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, (list, tuple)):
+            return [_json_compatible(item) for item in value]
+        return value
+
     path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        json.dumps(_json_compatible(payload), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
