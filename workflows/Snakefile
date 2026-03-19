@@ -6,4 +6,10 @@ rule all:
         "artifacts/manifests/bootstrap-manifest.txt",
         "artifacts/benchmark_runs/default/index.json",
         "artifacts/benchmark_runs/first_benchmark/index.json",
+        "artifacts/benchmark_runs/corpus_freeze/index.json",
+        "artifacts/benchmark_runs/gold_validation/index.json",
+        "artifacts/benchmark_runs/silver_validation/index.json",
+        "artifacts/benchmark_runs/continuum_validation/index.json",
+        "artifacts/benchmark_runs/efficacy_benchmark/index.json",
+        "artifacts/benchmark_runs/claims_audit/index.json",
         "artifacts/optimization/plan.ok"

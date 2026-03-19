@@ -25,6 +25,21 @@ def load_public_subset(path: Path) -> dict[str, object]:
     return {str(key): value for key, value in payload.items()}
 
 
+def load_public_population(path: Path) -> list[dict[str, object]]:
+    """Load a frozen published-lag population payload."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("SDSS-RM population payload must be a mapping")
+    objects = payload.get("objects", [])
+    if not isinstance(objects, list):
+        raise ValueError("SDSS-RM population objects payload must be a list")
+    return [
+        {str(key): value for key, value in record.items()}
+        for record in objects
+        if isinstance(record, dict)
+    ]
+
+
 def build_acquisition_plan(
     *,
     release_id: str,
