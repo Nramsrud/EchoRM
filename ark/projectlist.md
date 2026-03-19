@@ -16,7 +16,7 @@ releases:
     name: "Benchmark Core"
     status: active
     summary: "Deliver benchmark data access, calibration, inference, sonification, simulation, and validation on known lag-bearing systems."
-    projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022", "0023"]
+    projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022", "0023", "0024"]
     notes: "Validation on benchmark objects gates all later discovery claims."
   - version: "v0.3.0"
     name: "Discovery and Optimization"
@@ -335,6 +335,19 @@ projects:
     dependencies: ["0006", "0007", "0010", "0016", "0017", "0021", "0022"]
     tags: [benchmarks, validation, evidence, scientific-rigor]
     notes: "The first benchmark must distinguish real-fixture ingest fidelity from synthetic lag-recovery evidence and must not overstate scientific claims."
+  - id: "0024"
+    title: "Broad Benchmark Scientific Validation Gate Playbook"
+    summary: "Define the staged gate from bounded first benchmark coverage to broad scientific validation across gold, silver, continuum-RM, and sonification-efficacy benchmarks."
+    status: specified
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/playbooks/0024-broad-benchmark-scientific-validation-gate.md
+      plan: null
+      review: null
+    dependencies: ["0006", "0007", "0010", "0011", "0012", "0013", "0015", "0016", "0017", "0021", "0022", "0023"]
+    tags: [validation, benchmarks, playbook, scientific-rigor]
+    notes: "This playbook defines the evidence gates, required artifacts, and remaining implementation gaps before any broad scientific-validation claim is allowed."
 ```
 ## Authority Notes
 
