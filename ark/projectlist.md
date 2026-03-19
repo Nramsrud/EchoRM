@@ -16,7 +16,7 @@ releases:
     name: "Benchmark Core"
     status: active
     summary: "Deliver benchmark data access, calibration, inference, sonification, simulation, and validation on known lag-bearing systems."
-    projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022", "0023", "0024"]
+    projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022", "0023", "0024", "0025", "0026", "0027", "0028", "0029", "0030"]
     notes: "Validation on benchmark objects gates all later discovery claims."
   - version: "v0.3.0"
     name: "Discovery and Optimization"
@@ -338,7 +338,7 @@ projects:
   - id: "0024"
     title: "Broad Benchmark Scientific Validation Gate Playbook"
     summary: "Define the staged gate from bounded first benchmark coverage to broad scientific validation across gold, silver, continuum-RM, and sonification-efficacy benchmarks."
-    status: specified
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
@@ -348,6 +348,84 @@ projects:
     dependencies: ["0006", "0007", "0010", "0011", "0012", "0013", "0015", "0016", "0017", "0021", "0022", "0023"]
     tags: [validation, benchmarks, playbook, scientific-rigor]
     notes: "This playbook defines the evidence gates, required artifacts, and remaining implementation gaps before any broad scientific-validation claim is allowed."
+  - id: "0025"
+    title: "Benchmark Corpus Freeze and Multi-Method Execution"
+    summary: "Freeze the gold and silver benchmark corpora, execute the core reverberation methods on real benchmark objects, and materialize null and failure diagnostics."
+    status: planned
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0025-benchmark-corpus-freeze-multi-method-execution.md
+      plan: ark/plans/0025-benchmark-corpus-freeze-multi-method-execution.md
+      review: null
+    dependencies: ["0006", "0007", "0010", "0011", "0012", "0016", "0021", "0023", "0024"]
+    tags: [validation, benchmarks, methods, manifests]
+    notes: "This package establishes the frozen benchmark manifests and real benchmark method outputs required by all later broad-validation packages."
+  - id: "0026"
+    title: "Gold Benchmark Validation and Case Studies"
+    summary: "Validate the literature-rich AGN Watch gold benchmark set with object-level lag comparison, line diagnostics, audio artifacts, and case-study memos."
+    status: planned
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0026-gold-benchmark-validation-case-studies.md
+      plan: ark/plans/0026-gold-benchmark-validation-case-studies.md
+      review: null
+    dependencies: ["0013", "0015", "0017", "0025"]
+    tags: [validation, gold, agn-watch, case-studies]
+    notes: "Broad scientific validation requires more than one gold object with literature comparison, line-fit diagnostics, and mapping-comparison review."
+  - id: "0027"
+    title: "Silver Benchmark Population Validation"
+    summary: "Validate a broad SDSS-RM published-lag benchmark population with population metrics, null controls, and regime-level reporting."
+    status: planned
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0027-silver-benchmark-population-validation.md
+      plan: ark/plans/0027-silver-benchmark-population-validation.md
+      review: null
+    dependencies: ["0012", "0013", "0017", "0025"]
+    tags: [validation, silver, sdss-rm, population]
+    notes: "This package closes the population-scale validation gap with literature comparison, null controls, and regime-specific performance summaries."
+  - id: "0028"
+    title: "Continuum-RM Benchmark Expansion"
+    summary: "Expand the continuum-RM benchmark program across hierarchy, contamination, state-change, and cadence-stability tasks with literature-inspired ZTF benchmark objects."
+    status: planned
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0028-continuum-rm-benchmark-expansion.md
+      plan: ark/plans/0028-continuum-rm-benchmark-expansion.md
+      review: null
+    dependencies: ["0008", "0009", "0016", "0017", "0025"]
+    tags: [validation, continuum-rm, ztf, contamination]
+    notes: "This package establishes the broad continuum benchmark needed before contamination or disc-like claims are promoted."
+  - id: "0029"
+    title: "Sonification Efficacy Benchmark Program"
+    summary: "Run the blinded plot-only, audio-only, and combined-modality efficacy benchmark program against strong visual baselines."
+    status: planned
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0029-sonification-efficacy-benchmark-program.md
+      plan: ark/plans/0029-sonification-efficacy-benchmark-program.md
+      review: null
+    dependencies: ["0015", "0017", "0026", "0027", "0028"]
+    tags: [validation, efficacy, sonification, blinded]
+    notes: "Broad scientific validation requires a real blinded efficacy program rather than structural task scaffolding alone."
+  - id: "0030"
+    title: "Scientific Validation Review Surface and Claims Audit"
+    summary: "Upgrade the review application for scientific analysis across validation packages and implement the cross-package claims audit that determines whether the broad-validation gate is satisfied."
+    status: planned
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0030-scientific-validation-review-surface-claims-audit.md
+      plan: ark/plans/0030-scientific-validation-review-surface-claims-audit.md
+      review: null
+    dependencies: ["0022", "0026", "0027", "0028", "0029"]
+    tags: [validation, review, web, claims-audit]
+    notes: "The gate is not closed unless the tracked analysis surface and claims audit make the validation outputs inspectable and govern promotion correctly."
 ```
 ## Authority Notes
 
