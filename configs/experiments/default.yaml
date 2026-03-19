@@ -2,3 +2,5 @@ experiments:
   profile: baseline
   tracking_backend: mlflow
   tracking_uri: mlruns
+  benchmark_run_id: default
+  benchmark_seed: 7

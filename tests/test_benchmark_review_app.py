@@ -1,0 +1,100 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import threading
+from pathlib import Path
+from urllib.request import urlopen
+
+from echorm.cli.review_app import resolve_bind_host
+from echorm.eval.readiness import ToolStatus, materialize_benchmark_readiness_run
+from echorm.reports.review_app import create_review_server
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def _fake_verification_runner(
+    command: tuple[str, ...],
+    repo_root: Path,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(
+        args=command,
+        returncode=0,
+        stdout=f"ok: {repo_root.name}:{' '.join(command)}",
+        stderr="",
+    )
+
+
+def _materialize_run(tmp_path: Path) -> None:
+    materialize_benchmark_readiness_run(
+        repo_root=ROOT,
+        artifact_root=tmp_path,
+        run_id="testrun",
+        tools=(
+            ToolStatus("python3", True, "/usr/bin/python3"),
+            ToolStatus("git", True, "/usr/bin/git"),
+            ToolStatus("snakemake", True, "/usr/bin/snakemake"),
+        ),
+        command_runner=_fake_verification_runner,
+    )
+
+
+def test_bind_host_prefers_tailscale_and_supports_localhost_override() -> None:
+    assert resolve_bind_host(localhost=True) == "127.0.0.1"
+    assert resolve_bind_host(
+        localhost=False,
+        run_command=(
+            lambda command: "100.101.102.103"
+            if command[0] == "tailscale"
+            else None
+        ),
+    ) == "100.101.102.103"
+
+
+def test_bind_host_requires_explicit_localhost_when_tailscale_is_missing() -> None:
+    try:
+        resolve_bind_host(localhost=False, run_command=lambda command: None)
+    except RuntimeError as error:
+        assert "Tailscale" in str(error)
+    else:
+        raise AssertionError("expected Tailscale-first host resolution to fail")
+
+
+def test_review_app_serves_html_and_json_views(tmp_path: Path) -> None:
+    _materialize_run(tmp_path)
+    server = create_review_server(
+        artifact_root=tmp_path,
+        host="127.0.0.1",
+        port=0,
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_port
+        index_text = urlopen(f"http://127.0.0.1:{port}/").read().decode("utf-8")
+        runs_payload = json.loads(
+            urlopen(f"http://127.0.0.1:{port}/api/runs").read().decode("utf-8")
+        )
+        run_text = urlopen(f"http://127.0.0.1:{port}/runs/testrun").read().decode(
+            "utf-8"
+        )
+        case_payload = json.loads(
+            urlopen(
+                f"http://127.0.0.1:{port}/api/runs/testrun/cases/clean-seed-7"
+            )
+            .read()
+            .decode("utf-8")
+        )
+        file_text = urlopen(
+            f"http://127.0.0.1:{port}/files/testrun/summary.md"
+        ).read().decode("utf-8")
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert "Benchmark Review" in index_text
+    assert runs_payload["runs"][0]["run_id"] == "testrun"
+    assert "Run testrun" in run_text
+    assert case_payload["case_id"] == "clean-seed-7"
+    assert "# Benchmark Readiness testrun" in file_text

@@ -8,15 +8,15 @@ Numbered work packages, release groupings, and dependency ordering derived from 
 releases:
   - version: "v0.1.0"
     name: "Foundation and Standards"
-    status: active
+    status: released
     summary: "Establish the public repository boundary, the repository skeleton, the workflow substrate, and the canonical schema layer."
     projects: ["0001", "0002", "0003", "0004", "0005"]
     notes: "All committed outputs must remain formal, concise, precise, and limited to essential content."
   - version: "v0.2.0"
     name: "Benchmark Core"
-    status: planning
+    status: active
     summary: "Deliver benchmark data access, calibration, inference, sonification, simulation, and validation on known lag-bearing systems."
-    projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017"]
+    projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022"]
     notes: "Validation on benchmark objects gates all later discovery claims."
   - version: "v0.3.0"
     name: "Discovery and Optimization"
@@ -296,6 +296,32 @@ projects:
     dependencies: ["0017", "0018", "0019"]
     tags: [release, catalog, publications]
     notes: "Release only after validation, optimization, and discovery outputs are scientifically reviewed."
+  - id: "0021"
+    title: "Benchmark Readiness Hardening"
+    summary: "Convert the benchmark scaffold into an executable readiness surface with structured run bundles, readiness reports, and reproducible review artifacts."
+    status: implementing
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0021-benchmark-readiness-hardening.md
+      plan: ark/plans/0021-benchmark-readiness-hardening.md
+      review: null
+    dependencies: ["0004", "0006", "0007", "0015", "0016", "0017"]
+    tags: [benchmarks, validation, readiness, workflow]
+    notes: "Benchmark readiness requires executable run bundles, explicit environment checks, and reviewable outputs."
+  - id: "0022"
+    title: "Benchmark Review Web Interface"
+    summary: "Provide a read-only web interface for navigating benchmark runs, inspecting readiness state, and reviewing result quality."
+    status: implementing
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0022-benchmark-review-web-interface.md
+      plan: ark/plans/0022-benchmark-review-web-interface.md
+      review: null
+    dependencies: ["0021"]
+    tags: [review, web, benchmarks, tailscale]
+    notes: "Default network binding must use a detected Tailscale address, with localhost available only by explicit flag."
 ```
 ## Authority Notes
 

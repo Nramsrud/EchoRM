@@ -4,4 +4,5 @@ include: "rules/optimization.smk"
 rule all:
     input:
         "artifacts/manifests/bootstrap-manifest.txt",
+        "artifacts/benchmark_runs/default/index.json",
         "artifacts/optimization/plan.ok"
