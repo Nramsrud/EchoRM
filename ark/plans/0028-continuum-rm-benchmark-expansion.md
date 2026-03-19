@@ -10,11 +10,11 @@ Extend the continuum benchmark layer with broader suite definitions, literature-
 
 ## Steps
 
-1. Define the expanded continuum benchmark suites and their evidence labels, including hierarchy, contamination, state-change, and failure cases.
+1. Define the expanded continuum benchmark suites and their evidence labels, including hierarchy, contamination, state-change, failure, and cadence-degradation cases.
 2. Add literature-inspired or known-like ZTF benchmark objects and cadence-degradation scenarios to the benchmark corpus where they fit the declared scope.
-3. Execute the selected reverberation and classification paths over the expanded continuum benchmark package.
-4. Aggregate recovery, contaminated-versus-clean classification, and cadence-stability metrics into tracked reports.
-5. Add tests that validate suite labeling, metric structure, and package reproducibility.
+3. Execute the selected reverberation, rerun, and classification paths over the expanded continuum benchmark package.
+4. Aggregate recovery, contaminated-versus-clean classification, cadence-stability, and rerun-drift metrics into tracked reports.
+5. Add tests that validate suite labeling, threshold evaluation, metric structure, and package reproducibility.
 
 ## Expected File Changes
 
@@ -39,7 +39,8 @@ Extend the continuum benchmark layer with broader suite definitions, literature-
 ## Exit Criteria
 
 - Broader continuum benchmark suites are materialized in tracked artifacts with explicit evidence labels.
-- Recovery, contamination, and cadence-stability metrics are reported explicitly.
+- Recovery, contamination, and cadence-stability metrics are reported explicitly and satisfy the declared thresholds.
+- Rerun classifications and primary summary metrics remain within the declared tolerances.
 - The package states what the continuum benchmark evidence does and does not demonstrate.
 
 ## Risks

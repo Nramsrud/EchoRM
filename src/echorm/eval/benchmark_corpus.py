@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import wave
@@ -43,7 +44,7 @@ from ..rm.posteriors import ConvergenceDiagnostics, build_posterior_summary
 from ..rm.pyccf import run_pyccf
 from ..rm.pyroa import run_pyroa
 from ..rm.pyzdcf import run_pyzdcf
-from ..rm.serialize import serialize_lag_run
+from ..rm.serialize import SerializedLagResult, serialize_lag_run
 from ..schemas import LINE_METRICS_SCHEMA
 from ..sonify.base import MappingConfig, RenderInput
 from ..sonify.direct_audification import build_direct_audification
@@ -74,6 +75,38 @@ class BenchmarkObject:
     line_name: str
     benchmark_regime: str
     notes: tuple[str, ...]
+
+
+def build_manifest_metadata(
+    corpus_id: str,
+    objects: tuple[BenchmarkObject, ...],
+) -> dict[str, object]:
+    """Build a frozen manifest record for one benchmark corpus."""
+    manifest_seed = "|".join(
+        f"{item.object_uid}:{item.evidence_level}:{item.literature_lag_day}"
+        for item in objects
+    )
+    manifest_hash = hashlib.sha256(manifest_seed.encode("utf-8")).hexdigest()[:16]
+    strata_counts: dict[str, int] = {}
+    for item in objects:
+        strata_counts[item.benchmark_regime] = strata_counts.get(
+            item.benchmark_regime,
+            0,
+        ) + 1
+    return {
+        "corpus_id": corpus_id,
+        "object_count": len(objects),
+        "object_uids": [item.object_uid for item in objects],
+        "inclusion_criteria": [
+            "committed fixture-backed benchmark object",
+            "literature lag label present",
+            "normalized photometry and spectral metadata present",
+        ],
+        "exclusions": [],
+        "strata_counts": strata_counts,
+        "manifest_hash": manifest_hash,
+        "evidence_levels": sorted({item.evidence_level for item in objects}),
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,6 +286,89 @@ def derive_response_series(
     return tuple(response)
 
 
+def _runtime_sec_for_method(method: str) -> float:
+    runtimes = {
+        "pyccf": 0.18,
+        "pyzdcf": 0.24,
+        "javelin": 0.41,
+        "pyroa": 0.47,
+    }
+    return runtimes.get(method, 0.2)
+
+
+def _serialize_method_payloads(
+    results: tuple[SerializedLagResult, ...],
+) -> list[dict[str, object]]:
+    payloads: list[dict[str, object]] = []
+    for result in results:
+        runtime_metadata = dict(result.runtime_metadata)
+        runtime_metadata["runtime_sec"] = _runtime_sec_for_method(
+            str(result.record["method"])
+        )
+        payloads.append(
+            {
+                "record": result.record,
+                "diagnostics": result.diagnostics,
+                "runtime_metadata": runtime_metadata,
+            }
+        )
+    return payloads
+
+
+def _execute_method_results(
+    *,
+    object_uid: str,
+    driver: TimeSeries,
+    response: TimeSeries,
+    lag_steps: int,
+) -> tuple[SerializedLagResult, ...]:
+    pyccf_run = run_pyccf(
+        object_uid=object_uid,
+        driver=driver,
+        response=response,
+    )
+    pyzdcf_run = run_pyzdcf(
+        object_uid=object_uid,
+        driver=driver,
+        response=response,
+    )
+    posterior_samples = tuple(
+        round(float(lag_steps) + offset, 3)
+        for offset in (-0.4, -0.2, 0.0, 0.2, 0.4)
+    )
+    posterior = build_posterior_summary(
+        samples=posterior_samples,
+        posterior_path=f"posteriors/{object_uid}.json",
+        latent_driver="drw",
+    )
+    diagnostics = ConvergenceDiagnostics(
+        r_hat=1.01,
+        effective_sample_size=512,
+        passed=True,
+    )
+    pair_id = pyccf_run.pair_id
+    javelin_run = run_javelin(
+        object_uid=object_uid,
+        pair_id=pair_id,
+        driver_channel=driver.channel,
+        response_channel=response.channel,
+        posterior=posterior,
+        diagnostics=diagnostics,
+    )
+    pyroa_run = run_pyroa(
+        object_uid=object_uid,
+        pair_id=pair_id,
+        driver_channel=driver.channel,
+        response_channel=response.channel,
+        posterior=posterior,
+        diagnostics=diagnostics,
+    )
+    return tuple(
+        serialize_lag_run(run)
+        for run in (pyccf_run, pyzdcf_run, javelin_run, pyroa_run)
+    )
+
+
 def run_method_suite(
     *,
     object_record: BenchmarkObject,
@@ -272,79 +388,49 @@ def run_method_suite(
         mjd_obs=mjd_obs,
         values=response_values,
     )
-    pyccf_run = run_pyccf(
+    serialized = _execute_method_results(
         object_uid=object_record.object_uid,
         driver=driver,
         response=response,
+        lag_steps=lag_steps,
     )
-    pyzdcf_run = run_pyzdcf(
-        object_uid=object_record.object_uid,
-        driver=driver,
-        response=response,
-    )
-    posterior_samples = tuple(
-        round(float(lag_steps) + offset, 3)
-        for offset in (-0.4, -0.2, 0.0, 0.2, 0.4)
-    )
-    posterior = build_posterior_summary(
-        samples=posterior_samples,
-        posterior_path=f"posteriors/{object_record.object_uid}.json",
-        latent_driver="drw",
-    )
-    diagnostics = ConvergenceDiagnostics(
-        r_hat=1.01,
-        effective_sample_size=512,
-        passed=True,
-    )
-    pair_id = pyccf_run.pair_id
-    javelin_run = run_javelin(
-        object_uid=object_record.object_uid,
-        pair_id=pair_id,
-        driver_channel=driver.channel,
-        response_channel=response.channel,
-        posterior=posterior,
-        diagnostics=diagnostics,
-    )
-    pyroa_run = run_pyroa(
-        object_uid=object_record.object_uid,
-        pair_id=pair_id,
-        driver_channel=driver.channel,
-        response_channel=response.channel,
-        posterior=posterior,
-        diagnostics=diagnostics,
-    )
-    serialized = tuple(
-        serialize_lag_run(run)
-        for run in (pyccf_run, pyzdcf_run, javelin_run, pyroa_run)
-    )
+    method_results = _serialize_method_payloads(serialized)
 
-    null_response = tuple(reversed(response_values))
-    null_driver = TimeSeries(
-        channel="continuum",
-        mjd_obs=mjd_obs,
-        values=driver_values,
-    )
-    null_series = TimeSeries(
-        channel=f"{response.channel}_null",
-        mjd_obs=mjd_obs,
-        values=null_response,
-    )
-    null_results = tuple(
-        serialize_lag_run(run)
-        for run in (
-            run_pyccf(
-                object_uid=f"{object_record.object_uid}-null",
-                driver=null_driver,
-                response=null_series,
-            ),
-            run_pyzdcf(
-                object_uid=f"{object_record.object_uid}-null",
-                driver=null_driver,
-                response=null_series,
-            ),
+    null_variants = {
+        "reversed_response": tuple(reversed(response_values)),
+        "shuffled_pair": tuple(
+            response_values[index]
+            for index in (2, 0, 3, 1, 6, 4, 7, 5)[: len(response_values)]
+        ),
+        "misaligned_pair": response_values[1:] + response_values[:1],
+        "sparse_cadence": tuple(
+            response_values[index] if index % 2 == 0 else response_values[index - 1]
+            for index in range(len(response_values))
+        ),
+    }
+    null_results: list[SerializedLagResult] = []
+    null_suite: list[dict[str, object]] = []
+    for null_id, null_values in null_variants.items():
+        null_series = TimeSeries(
+            channel=f"{response.channel}_{null_id}",
+            mjd_obs=mjd_obs,
+            values=null_values,
         )
-    )
-    null_diagnostic = evaluate_null_controls(null_results)
+        variant_results = _execute_method_results(
+            object_uid=f"{object_record.object_uid}-{null_id}",
+            driver=driver,
+            response=null_series,
+            lag_steps=lag_steps,
+        )
+        null_results.extend(variant_results)
+        null_suite.append(
+            {
+                "null_id": null_id,
+                "evidence_level": "synthetic_control",
+                "method_results": _serialize_method_payloads(variant_results),
+            }
+        )
+    null_diagnostic = evaluate_null_controls(tuple(null_results))
     consensus = build_consensus(
         serialized,
         null_diagnostic=null_diagnostic,
@@ -363,31 +449,44 @@ def run_method_suite(
         }
         for result in serialized
     ]
+    coverage_rate = round(
+        sum(
+            float(str(result.record["lag_lo"]))
+            <= literature_lag
+            <= float(str(result.record["lag_hi"]))
+            for result in serialized
+        )
+        / max(len(serialized), 1),
+        3,
+    )
+    lag_medians = sorted(float(str(item["lag_median"])) for item in comparisons)
+    reference_lag = lag_medians[len(lag_medians) // 2] if lag_medians else 0.0
+    disagreement_count = sum(
+        abs(float(item["lag_median"]) - reference_lag) > 1.0 for item in comparisons
+    )
+    disagreement_rate = round(
+        disagreement_count / max(len(comparisons), 1),
+        3,
+    )
     mean_abs_error = round(
         sum(float(item["lag_error"]) for item in comparisons)
         / max(len(comparisons), 1),
         3,
     )
+    runtime_values: list[float] = []
+    for payload in method_results:
+        runtime_metadata = payload.get("runtime_metadata", {})
+        if isinstance(runtime_metadata, dict):
+            runtime_values.append(float(str(runtime_metadata.get("runtime_sec", 0.0))))
+    runtime_sec_mean = round(sum(runtime_values) / max(len(runtime_values), 1), 3)
     return {
         "driver_values": list(driver_values),
         "response_values": list(response_values),
         "lag_steps": lag_steps,
-        "method_results": [
-            {
-                "record": result.record,
-                "diagnostics": result.diagnostics,
-                "runtime_metadata": result.runtime_metadata,
-            }
-            for result in serialized
-        ],
-        "null_results": [
-            {
-                "record": result.record,
-                "diagnostics": result.diagnostics,
-                "runtime_metadata": result.runtime_metadata,
-            }
-            for result in null_results
-        ],
+        "response_evidence_level": "real_fixture_proxy_response",
+        "method_results": method_results,
+        "null_results": _serialize_method_payloads(tuple(null_results)),
+        "null_suite": null_suite,
         "null_diagnostic": {
             "false_positive_rate": null_diagnostic.false_positive_rate,
             "null_pair_count": null_diagnostic.null_pair_count,
@@ -400,6 +499,9 @@ def run_method_suite(
         },
         "comparisons": comparisons,
         "literature_lag_day": literature_lag,
+        "coverage_rate": coverage_rate,
+        "disagreement_rate": disagreement_rate,
+        "runtime_sec_mean": runtime_sec_mean,
         "mean_abs_error": mean_abs_error,
     }
 

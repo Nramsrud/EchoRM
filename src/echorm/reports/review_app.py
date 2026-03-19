@@ -114,10 +114,17 @@ def render_run_detail_html(run: dict[str, object]) -> str:
     tools = run.get("tools", [])
     cases = run.get("cases", [])
     objects = run.get("objects", [])
+    methods = run.get("methods", [])
+    nulls = run.get("nulls", [])
+    reruns = run.get("reruns", [])
     tasks = run.get("tasks", [])
     cohorts = run.get("cohorts", [])
     comparisons = run.get("comparisons", [])
     audit_conditions = run.get("audit_conditions", [])
+    literature_table = run.get("literature_table", [])
+    failure_modes = run.get("failure_modes", [])
+    responses = run.get("responses", [])
+    confusion_summary = run.get("confusion_summary", {})
     warnings_object = run.get("warnings", [])
     warnings = (
         [str(value) for value in warnings_object]
@@ -187,6 +194,51 @@ def render_run_detail_html(run: dict[str, object]) -> str:
             f"<td>{escape(str(item.get('evidence_level', '')))}</td>"
             f"<td>{escape(str(item.get('quality_flag', '')))}</td>"
             f"<td>{escape(str(item.get('primary_metric', '')))}</td>"
+            "</tr>"
+        )
+
+    method_rows = []
+    for item in methods if isinstance(methods, list) else []:
+        if not isinstance(item, dict):
+            continue
+        method_id = escape(str(item.get("method_id", "")))
+        method_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/methods/{method_id}'>{method_id}</a></td>"
+            f"<td>{escape(str(item.get('object_uid', '')))}</td>"
+            f"<td>{escape(str(item.get('lag_median', '')))}</td>"
+            f"<td>{escape(str(item.get('runtime_sec', '')))}</td>"
+            "</tr>"
+        )
+
+    null_rows = []
+    for item in nulls if isinstance(nulls, list) else []:
+        if not isinstance(item, dict):
+            continue
+        null_id = escape(str(item.get("null_id", "")))
+        null_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/nulls/{null_id}'>{null_id}</a></td>"
+            f"<td>{escape(str(item.get('object_uid', '')))}</td>"
+            f"<td>{escape(str(item.get('null_kind', '')))}</td>"
+            f"<td>{escape(str(item.get('method_count', '')))}</td>"
+            "</tr>"
+        )
+
+    rerun_rows = []
+    for item in reruns if isinstance(reruns, list) else []:
+        if not isinstance(item, dict):
+            continue
+        rerun_id = escape(str(item.get("rerun_id", "")))
+        rerun_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/reruns/{rerun_id}'>{rerun_id}</a></td>"
+            f"<td>{escape(str(item.get('metric_name', '')))}</td>"
+            f"<td>{escape(str(item.get('max_primary_metric_drift', '')))}</td>"
+            f"<td>{escape(str(item.get('passed', '')))}</td>"
             "</tr>"
         )
 
@@ -272,6 +324,18 @@ def render_run_detail_html(run: dict[str, object]) -> str:
         "<table><thead><tr><th>Object</th><th>Tier</th><th>Evidence</th>"
         "<th>Quality</th><th>Primary Metric</th></tr></thead>"
         f"<tbody>{''.join(object_rows)}</tbody></table>"
+        "<h2>Methods</h2>"
+        "<table><thead><tr><th>Method</th><th>Object</th><th>Lag</th>"
+        "<th>Runtime</th></tr></thead>"
+        f"<tbody>{''.join(method_rows)}</tbody></table>"
+        "<h2>Null Suites</h2>"
+        "<table><thead><tr><th>Null</th><th>Object</th><th>Kind</th>"
+        "<th>Method Count</th></tr></thead>"
+        f"<tbody>{''.join(null_rows)}</tbody></table>"
+        "<h2>Reruns</h2>"
+        "<table><thead><tr><th>Rerun</th><th>Metric</th><th>Drift</th>"
+        "<th>Passed</th></tr></thead>"
+        f"<tbody>{''.join(rerun_rows)}</tbody></table>"
         "<h2>Tasks</h2>"
         "<table><thead><tr><th>Task</th><th>Mode</th><th>Type</th></tr></thead>"
         f"<tbody>{''.join(task_rows)}</tbody></table>"
@@ -281,6 +345,14 @@ def render_run_detail_html(run: dict[str, object]) -> str:
         f"<tbody>{''.join(cohort_rows)}</tbody></table>"
         "<h2>Comparisons</h2>"
         f"<table><tbody>{''.join(comparison_rows)}</tbody></table>"
+        "<h2>Literature Table</h2>"
+        f"<pre>{escape(json.dumps(literature_table, indent=2, sort_keys=True))}</pre>"
+        "<h2>Failure Modes</h2>"
+        f"<pre>{escape(json.dumps(failure_modes, indent=2, sort_keys=True))}</pre>"
+        "<h2>Responses</h2>"
+        f"<pre>{escape(json.dumps(responses, indent=2, sort_keys=True))}</pre>"
+        "<h2>Confusion Summary</h2>"
+        f"<pre>{escape(json.dumps(confusion_summary, indent=2, sort_keys=True))}</pre>"
         "<h2>Claims Audit</h2>"
         "<table><thead><tr><th>Condition</th><th>OK</th><th>Detail</th></tr></thead>"
         f"<tbody>{''.join(audit_rows)}</tbody></table>"
@@ -416,6 +488,9 @@ def build_review_handler(artifact_root: Path) -> type[BaseHTTPRequestHandler]:
                     return
                 if len(segments) == 5 and segments[3] in {
                     "objects",
+                    "methods",
+                    "nulls",
+                    "reruns",
                     "tasks",
                     "cohorts",
                 }:
@@ -446,6 +521,9 @@ def build_review_handler(artifact_root: Path) -> type[BaseHTTPRequestHandler]:
                     return
                 if len(segments) == 4 and segments[2] in {
                     "objects",
+                    "methods",
+                    "nulls",
+                    "reruns",
                     "tasks",
                     "cohorts",
                 }:
@@ -453,6 +531,9 @@ def build_review_handler(artifact_root: Path) -> type[BaseHTTPRequestHandler]:
                     item = load_group_detail(artifact_root, run_id, group, item_id)
                     item_id_key = {
                         "objects": "object_uid",
+                        "methods": "method_id",
+                        "nulls": "null_id",
+                        "reruns": "rerun_id",
                         "tasks": "task_id",
                         "cohorts": "cohort_id",
                     }[group]

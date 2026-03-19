@@ -11,6 +11,7 @@ Freeze the gold and silver benchmark corpora, execute the core reverberation met
 - Run PyCCF, pyZDCF, JAVELIN, and PyROA on real benchmark objects with explicit runtime metadata, convergence diagnostics, and failure capture.
 - Materialize shuffled-pair, misaligned-pair, and cadence-stress null outputs needed for later calibration and false-positive analysis.
 - Emit method-level artifacts in forms consumable by later validation, review, and claims-audit packages.
+- Label every driver and response series explicitly as real fixture response, real-fixture proxy response, literature-inspired response, or synthetic control; proxy responses must never be reported as direct real-series evidence.
 
 ## Non-Goals
 
@@ -26,9 +27,11 @@ Freeze the gold and silver benchmark corpora, execute the core reverberation met
 
 ## Acceptance Criteria
 
-- Tracked commands can materialize frozen gold and silver benchmark manifests from committed code and declared source metadata.
-- The repository can execute PyCCF, pyZDCF, JAVELIN, and PyROA across the benchmark corpus subset selected for the package and store method-level outputs and failures as tracked artifacts.
-- Null and cadence-stress benchmark outputs are materialized in tracked artifacts with explicit labels and provenance.
+- Tracked commands materialize frozen gold and silver benchmark manifests with inclusion criteria, exclusion reasons, strata counts, evidence labels, and manifest hashes.
+- The repository executes PyCCF, pyZDCF, JAVELIN, and PyROA across the selected benchmark corpus slice and stores method-level outputs, runtime metadata, convergence diagnostics, and explicit failure records as tracked artifacts.
+- Every benchmark object records whether its response path is direct fixture response or proxy response, and no proxy response is labeled as direct real-series evidence.
+- Null outputs include shuffled-pair, misaligned-pair, reversed-response, and sparse-cadence variants with explicit labels and provenance.
+- Repeated materialization preserves manifest hashes and package-level benchmark counts exactly.
 
 ## Dependencies
 

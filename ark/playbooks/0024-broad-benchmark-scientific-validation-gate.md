@@ -26,6 +26,35 @@ Broad scientific validation is reached only when all of the following are true:
 4. Sonification efficacy is demonstrated against strong plot-only baselines on blinded benchmark tasks.
 5. All validation claims are reproduced from tracked artifacts with frozen benchmark definitions, explicit provenance, and explicit limitations.
 
+This gate is scoped to the declared benchmark program. It does not authorize claims about field deployment, full survey coverage, or discovery-pool performance beyond the benchmark slices and evidence levels materialized in tracked artifacts.
+
+## Quantitative Gate Thresholds
+
+- Gold package:
+  - at least 2 gold objects
+  - mean absolute lag error at or below 3.0 days across the package
+  - 4 tracked methods executed for every gold object
+  - rerun drift at or below 0.25 days on the declared primary metrics
+- Silver package:
+  - at least 4 silver objects
+  - interval or posterior coverage at or above 0.75
+  - null false-positive rate at or below 0.10
+  - inter-method disagreement rate at or below 0.50
+  - runtime recorded for every object and method record
+- Continuum package:
+  - at least 5 benchmark cases
+  - contaminated-versus-clean classification accuracy at or above 0.75
+  - cadence-stability score at or above 0.75
+  - rerun classifications preserved within the declared tolerance
+- Efficacy package:
+  - audio-only accuracy at or above plot-only accuracy
+  - combined-modality accuracy at or above plot-only accuracy
+  - confidence-calibration error at or below 0.20
+  - inter-rater agreement at or above 0.60
+- Cross-package:
+  - evidence level, scope, limitations, and non-demonstrated capability are present on every package
+  - repeated reruns preserve package readiness and primary conclusions within declared tolerances
+
 ## Remaining Gaps
 
 ### G1. Benchmark Corpus Expansion
@@ -169,6 +198,7 @@ The broad scientific-validation gate is satisfied only if all of the following a
 - Continuum-RM benchmark performance is measured on contamination and cadence-stability tasks.
 - Sonification efficacy is benchmarked against plot-only baselines on blinded tasks.
 - Repeated reruns preserve benchmark classifications and summary conclusions within predeclared tolerances.
+- The quantitative thresholds in this playbook are satisfied and recorded by the claims audit.
 
 ## Non-Promotable Evidence
 
@@ -183,4 +213,4 @@ The following do not justify a broad scientific-validation claim on their own:
 
 ## Exit Condition
 
-After this gate is satisfied, the repository may describe the benchmark program as broadly scientifically validated within the declared benchmark scope. Discovery and optimization claims remain downstream of that gate and must still treat the discovery pool as hold-out.
+After this gate is satisfied, the repository may describe the benchmark program as scientifically ready within the declared benchmark scope and broadly scientifically validated within that scope. Discovery and optimization claims remain downstream of that gate and must still treat the discovery pool as hold-out.

@@ -25,9 +25,9 @@ Expand the continuum-RM benchmark program across hierarchy, contamination, state
 
 ## Acceptance Criteria
 
-- The repository can materialize a broader continuum-RM benchmark package with hierarchy, contamination, state-change, and failure-case tasks.
-- The package reports recovery of known-like lag hierarchies, contaminated-versus-clean classification performance, and cadence-stability behavior.
-- Literature-inspired or known-like ZTF benchmark objects are incorporated into tracked benchmark artifacts with explicit evidence labeling and limitations.
+- The repository materializes a broader continuum-RM benchmark package with hierarchy, contamination, state-change, failure-case, and cadence-degradation tasks.
+- The package reports recovery of known-like lag hierarchies, contaminated-versus-clean classification performance at or above 0.75, and cadence-stability behavior at or above 0.75.
+- Literature-inspired or known-like ZTF benchmark objects are incorporated into tracked benchmark artifacts with explicit evidence labeling, limitations, and rerun stability records.
 
 ## Dependencies
 

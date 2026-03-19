@@ -10,11 +10,11 @@ Build a scored blinded-task benchmark program over tracked validation artifacts,
 
 ## Steps
 
-1. Define the blinded task sets, participant or agent cohort structure, and training-level records for the efficacy benchmark program.
+1. Define the blinded task sets, participant or agent cohort structure, training-level records, and agreement-calculation method for the efficacy benchmark program.
 2. Materialize plot-only, audio-only, and plot-plus-audio task packages from tracked validation artifacts with answer keys separated from task views.
-3. Implement scored response capture, confidence capture, and timing capture for the efficacy program.
-4. Aggregate cohort-level metrics, confusion summaries, and baseline comparisons into tracked reports.
-5. Add tests that validate blinding structure, response scoring, and efficacy summary aggregation.
+3. Implement scored response capture, confidence capture, timing capture, and repeated-response handling for the efficacy program.
+4. Aggregate cohort-level metrics, calibration summaries, agreement summaries, confusion summaries, and baseline comparisons into tracked reports.
+5. Add tests that validate blinding structure, response scoring, calibration, agreement, and efficacy-threshold evaluation.
 
 ## Expected File Changes
 
@@ -38,8 +38,8 @@ Build a scored blinded-task benchmark program over tracked validation artifacts,
 ## Exit Criteria
 
 - Blinded efficacy task packages and scored results exist as tracked artifacts across the declared task modes.
-- Cohort-level efficacy metrics and confusion summaries are reported explicitly.
-- Plot-only baseline comparisons are present in the package-level summary.
+- Cohort-level efficacy metrics, calibration summaries, agreement summaries, and confusion summaries are reported explicitly.
+- Plot-only baseline comparisons are present in the package-level summary and satisfy the declared thresholds.
 
 ## Risks
 

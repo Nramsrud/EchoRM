@@ -10,11 +10,11 @@ Extend the existing review surface from run-and-case inspection to validation-an
 
 ## Steps
 
-1. Extend the review-artifact schemas and loaders to support gold, silver, continuum-RM, and efficacy validation packages plus cross-package summaries.
-2. Add package, cohort, object, method, mapping-family, rerun, and task-level pages and filters to the review application.
-3. Add comparative views for literature tables, null-test outcomes, failure summaries, exclusions, and linked audio artifacts.
-4. Implement the claims-audit generator that evaluates the declared gate conditions from tracked validation artifacts and writes a structured audit dossier.
-5. Add tests that validate review-surface navigation, filtering, artifact linking, and claims-audit evaluation.
+1. Extend the review-artifact schemas and loaders to support gold, silver, continuum-RM, efficacy, null-suite, and rerun artifacts plus cross-package summaries.
+2. Add package, cohort, object, method, rerun, and task-level pages and filters to the review application.
+3. Add comparative views for literature tables, null-test outcomes, runtime summaries, failure summaries, exclusions, and linked audio artifacts.
+4. Implement the claims-audit generator that evaluates the declared gate conditions and quantitative thresholds from tracked validation artifacts and writes a structured audit dossier.
+5. Add tests that validate review-surface navigation, filtering, artifact linking, threshold visibility, and claims-audit evaluation.
 
 ## Expected File Changes
 
@@ -39,8 +39,8 @@ Extend the existing review surface from run-and-case inspection to validation-an
 ## Exit Criteria
 
 - The review application supports scientific analysis across validation packages from tracked artifacts alone.
-- A claims-audit artifact evaluates and records whether the broad-validation gate is satisfied.
-- Limitations, exclusions, evidence levels, and non-demonstrated capabilities remain visible in the review surface and audit outputs.
+- A claims-audit artifact evaluates and records whether the broad-validation gate is satisfied under the declared quantitative thresholds.
+- Limitations, exclusions, evidence levels, reproducibility status, and non-demonstrated capabilities remain visible in the review surface and audit outputs.
 
 ## Risks
 

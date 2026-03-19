@@ -25,9 +25,10 @@ Validate the literature-rich AGN Watch gold benchmark set with object-level lag 
 
 ## Acceptance Criteria
 
-- More than one AGN Watch gold benchmark object is validated in tracked artifacts with literature comparison and line-fit diagnostics.
-- Each validated object has a mapping-comparison memo and linked audio artifacts across the selected mapping families.
-- The gold validation package states demonstrated capability, limitations, and residual uncertainties explicitly for each object and for the package as a whole.
+- More than one AGN Watch gold benchmark object is validated in tracked artifacts with literature comparison, method table, and line-fit diagnostics.
+- The package records a mean absolute lag error at or below 3.0 days across the declared gold set and records rerun drift on the primary metrics.
+- Each validated object has a mapping-comparison memo, linked audio artifacts across the selected mapping families, and an explicit claims-boundary panel.
+- The gold validation package states demonstrated capability, limitations, residual uncertainties, and evidence level explicitly for each object and for the package as a whole.
 
 ## Dependencies
 

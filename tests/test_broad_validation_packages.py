@@ -87,7 +87,9 @@ def test_broad_validation_packages_materialize_and_claims_audit_passes(
     assert audit["package_type"] == "claims_audit"
     assert audit["summary"]["promotion_allowed"] is True
     assert audit["summary"]["conditions_passed"] == audit["summary"]["condition_count"]
+    assert audit["summary"]["condition_count"] >= 16
     assert silver["summary"]["population_count"] == 4
+    assert silver["summary"]["coverage_rate"] >= 0.75
     assert len(silver["comparisons"]) >= 2
 
 
@@ -110,6 +112,12 @@ def test_review_app_serves_broad_validation_object_task_and_audit_views(
         object_text = urlopen(
             f"http://127.0.0.1:{port}/runs/gold_validation/objects/ngc5548"
         ).read().decode("utf-8")
+        method_text = urlopen(
+            f"http://127.0.0.1:{port}/runs/gold_validation/methods/ngc5548-pyzdcf"
+        ).read().decode("utf-8")
+        rerun_text = urlopen(
+            f"http://127.0.0.1:{port}/runs/gold_validation/reruns/gold_primary_metric_stability"
+        ).read().decode("utf-8")
         task_text = urlopen(
             f"http://127.0.0.1:{port}/runs/efficacy_benchmark/tasks/lag_order_audio"
         ).read().decode("utf-8")
@@ -130,6 +138,8 @@ def test_review_app_serves_broad_validation_object_task_and_audit_views(
 
     assert "gold_validation" in gold_text
     assert "Object ngc5548" in object_text
+    assert "Method ngc5548-pyzdcf" in method_text
+    assert "Rerun gold_primary_metric_stability" in rerun_text
     assert "Task lag_order_audio" in task_text
     assert cohort_payload["cohort_id"] == "trained"
     assert "Claims Audit" in audit_text

@@ -26,8 +26,9 @@ Validate a broad SDSS-RM published-lag benchmark population with population metr
 ## Acceptance Criteria
 
 - A broad SDSS-RM published-lag benchmark population is evaluated in tracked artifacts with lag-recovery, coverage, false-positive, disagreement, runtime, and regime metrics.
+- The package records coverage at or above 0.75, null false-positive rate at or below 0.10, and inter-method disagreement rate at or below 0.50 for the declared benchmark slice.
 - Null and shuffled-pair controls are included with explicit labeling and reported false-positive behavior.
-- The package produces a benchmark leaderboard, a literature comparison table, and failure-mode summaries with explicit scope and limitations.
+- The package produces a benchmark leaderboard, a literature comparison table, runtime summaries, and failure-mode summaries with explicit scope, evidence level, and limitations.
 
 ## Dependencies
 

@@ -25,9 +25,10 @@ Upgrade the review application for scientific analysis across validation package
 
 ## Acceptance Criteria
 
-- The review application can navigate and compare validation packages, cohorts, objects, methods, mapping families, reruns, and efficacy tasks from tracked artifacts.
-- The service exposes the literature comparisons, null-test outputs, failure summaries, and claims-boundary panels needed for scientific review.
-- A tracked claims-audit artifact evaluates the broad-validation gate against the generated validation packages and records whether promotion is allowed.
+- The review application can navigate and compare validation packages, cohorts, objects, methods, null suites, reruns, and efficacy tasks from tracked artifacts.
+- The service exposes the literature comparisons, null-test outputs, runtime summaries, failure summaries, exclusions, and claims-boundary panels needed for scientific review.
+- A tracked claims-audit artifact evaluates the quantitative thresholds and qualitative gate conditions in the playbook against the generated validation packages and records whether promotion is allowed.
+- The claims audit defaults to non-promotion when any required threshold, evidence label, or reproducibility condition is missing.
 
 ## Dependencies
 

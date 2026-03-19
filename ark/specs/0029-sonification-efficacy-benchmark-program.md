@@ -26,8 +26,8 @@ Run the blinded plot-only, audio-only, and combined-modality efficacy benchmark 
 ## Acceptance Criteria
 
 - The repository can materialize blinded efficacy task packages and scored responses for plot-only, audio-only, and plot-plus-audio modes.
-- The package reports accuracy, time-to-decision, confidence calibration, inter-rater agreement, and performance by training level.
-- The efficacy benchmark summary compares audio-only and combined-modality performance against strong plot-only baselines explicitly.
+- The package reports accuracy, time-to-decision, confidence-calibration error, inter-rater agreement, confusion summaries, and performance by training level.
+- The efficacy benchmark summary shows audio-only accuracy at or above plot-only accuracy, combined-modality accuracy at or above plot-only accuracy, calibration error at or below 0.20, and inter-rater agreement at or above 0.60.
 
 ## Dependencies
 

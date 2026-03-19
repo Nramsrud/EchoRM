@@ -351,7 +351,7 @@ projects:
   - id: "0025"
     title: "Benchmark Corpus Freeze and Multi-Method Execution"
     summary: "Freeze the gold and silver benchmark corpora, execute the core reverberation methods on real benchmark objects, and materialize null and failure diagnostics."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
@@ -364,7 +364,7 @@ projects:
   - id: "0026"
     title: "Gold Benchmark Validation and Case Studies"
     summary: "Validate the literature-rich AGN Watch gold benchmark set with object-level lag comparison, line diagnostics, audio artifacts, and case-study memos."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
@@ -377,7 +377,7 @@ projects:
   - id: "0027"
     title: "Silver Benchmark Population Validation"
     summary: "Validate a broad SDSS-RM published-lag benchmark population with population metrics, null controls, and regime-level reporting."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
@@ -390,7 +390,7 @@ projects:
   - id: "0028"
     title: "Continuum-RM Benchmark Expansion"
     summary: "Expand the continuum-RM benchmark program across hierarchy, contamination, state-change, and cadence-stability tasks with literature-inspired ZTF benchmark objects."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
@@ -403,7 +403,7 @@ projects:
   - id: "0029"
     title: "Sonification Efficacy Benchmark Program"
     summary: "Run the blinded plot-only, audio-only, and combined-modality efficacy benchmark program against strong visual baselines."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
@@ -416,7 +416,7 @@ projects:
   - id: "0030"
     title: "Scientific Validation Review Surface and Claims Audit"
     summary: "Upgrade the review application for scientific analysis across validation packages and implement the cross-package claims audit that determines whether the broad-validation gate is satisfied."
-    status: planned
+    status: committed
     priority: high
     release: "v0.2.0"
     files:

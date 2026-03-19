@@ -10,11 +10,11 @@ Build a silver validation package over the frozen silver corpus, benchmark-run o
 
 ## Steps
 
-1. Select the broad published-lag silver population from the frozen manifest and define the regime breakdowns to be reported.
+1. Select the broad published-lag silver population from the frozen manifest and define the regime breakdowns and thresholds to be reported.
 2. Aggregate method-level and consensus benchmark outputs into population metrics, including lag recovery, coverage, disagreement, false-positive, and runtime summaries.
-3. Incorporate null, shuffled-pair, and cadence-stress controls into the silver validation package with explicit reporting.
-4. Build leaderboards, literature comparison tables, and failure-mode summaries from the aggregated outputs.
-5. Add tests that validate metric aggregation, regime labeling, null-control handling, and artifact completeness.
+3. Incorporate null, shuffled-pair, and cadence-stress controls into the silver validation package with explicit reporting and threshold checks.
+4. Build leaderboards, literature comparison tables, runtime summaries, and failure-mode summaries from the aggregated outputs.
+5. Add tests that validate metric aggregation, regime labeling, null-control handling, threshold evaluation, and artifact completeness.
 
 ## Expected File Changes
 
@@ -38,8 +38,9 @@ Build a silver validation package over the frozen silver corpus, benchmark-run o
 ## Exit Criteria
 
 - Population-level silver benchmark metrics are reproducible from tracked artifacts.
+- Coverage, false-positive, and disagreement metrics satisfy the declared thresholds for the benchmark slice.
 - Null and shuffled controls are reported explicitly with failure-mode visibility.
-- The package emits a leaderboard, literature comparison table, and regime-specific summaries.
+- The package emits a leaderboard, literature comparison table, runtime summary, and regime-specific summaries.
 
 ## Risks
 

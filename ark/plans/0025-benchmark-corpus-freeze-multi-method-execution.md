@@ -10,12 +10,12 @@ Build benchmark-manifest and benchmark-run infrastructure that expands the curre
 
 ## Steps
 
-1. Define frozen benchmark-manifest schemas and builders for the gold and silver corpora, including strata, literature labels, and exclusion records.
-2. Expand acquisition and normalization paths to support the benchmark corpus size selected for this package while preserving raw provenance and declared release metadata.
-3. Implement real benchmark execution flows for PyCCF, pyZDCF, JAVELIN, and PyROA with structured runtime, posterior, convergence, and failure outputs.
-4. Add null, shuffled-pair, misaligned-pair, and cadence-stress benchmark generation and execution paths.
-5. Materialize method-level benchmark outputs and manifest indexes in tracked artifact directories consumable by downstream validation packages.
-6. Add tests that validate manifest freezing, method-output structure, failure capture, and null-benchmark labeling.
+1. Define frozen benchmark-manifest schemas and builders for the gold and silver corpora, including strata, literature labels, exclusion records, evidence labels, and manifest hashes.
+2. Expand acquisition and normalization paths to support the benchmark corpus size selected for this package while preserving raw provenance, declared release metadata, and explicit response-evidence labeling.
+3. Implement benchmark execution flows for PyCCF, pyZDCF, JAVELIN, and PyROA with structured runtime, posterior, convergence, and failure outputs for every selected object.
+4. Add reversed-response, shuffled-pair, misaligned-pair, and sparse-cadence null-benchmark generation and execution paths.
+5. Materialize method-level benchmark outputs, manifest indexes, and rerun-stability records in tracked artifact directories consumable by downstream validation packages.
+6. Add tests that validate manifest freezing, method-output structure, failure capture, evidence labeling, null-benchmark labeling, and rerun reproducibility.
 
 ## Expected File Changes
 
@@ -39,9 +39,10 @@ Build benchmark-manifest and benchmark-run infrastructure that expands the curre
 
 ## Exit Criteria
 
-- Frozen gold and silver benchmark manifests exist as tracked artifacts with explicit labels and exclusions.
-- Real benchmark execution artifacts exist for PyCCF, pyZDCF, JAVELIN, and PyROA over the selected corpus slice.
-- Null and cadence-stress outputs are materialized with explicit provenance and labels.
+- Frozen gold and silver benchmark manifests exist as tracked artifacts with explicit labels, exclusions, strata counts, and hashes.
+- Benchmark execution artifacts exist for PyCCF, pyZDCF, JAVELIN, and PyROA over the selected corpus slice with runtime, convergence, and failure metadata.
+- Response evidence is labeled explicitly for every object, and proxy evidence is never conflated with direct real-series evidence.
+- Null outputs are materialized for reversed-response, shuffled-pair, misaligned-pair, and sparse-cadence variants with explicit provenance and labels.
 
 ## Risks
 
