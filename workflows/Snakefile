@@ -5,4 +5,5 @@ rule all:
     input:
         "artifacts/manifests/bootstrap-manifest.txt",
         "artifacts/benchmark_runs/default/index.json",
+        "artifacts/benchmark_runs/first_benchmark/index.json",
         "artifacts/optimization/plan.ok"

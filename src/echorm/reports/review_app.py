@@ -74,17 +74,18 @@ def render_root_index_html(root_index: dict[str, object]) -> str:
             "<tr>"
             f"<td><a href='/runs/{run_id}'>{run_id}</a></td>"
             f"<td>{escape(str(run.get('profile', '')))}</td>"
+            f"<td>{escape(str(run.get('package_type', 'readiness')))}</td>"
             f"<td>{escape(str(run.get('readiness', '')))}</td>"
             f"<td>{escape(str(run.get('case_count', '')))}</td>"
             "</tr>"
         )
     body = (
         "<h1>Benchmark Review</h1>"
-        "<div class='banner'>Read-only review surface over benchmark readiness "
-        "bundles.</div>"
+        "<div class='banner'>Read-only review surface over benchmark "
+        "artifacts.</div>"
         "<p><a href='/api/runs'>JSON index</a></p>"
-        "<table><thead><tr><th>Run</th><th>Profile</th><th>Readiness</th>"
-        "<th>Cases</th></tr></thead>"
+        "<table><thead><tr><th>Run</th><th>Profile</th><th>Type</th>"
+        "<th>Readiness</th><th>Cases</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table>"
     )
     return _html_page("Benchmark Review", body)
@@ -93,6 +94,8 @@ def render_root_index_html(root_index: dict[str, object]) -> str:
 def render_run_detail_html(run: dict[str, object]) -> str:
     """Render one run-detail page."""
     summary = run.get("summary", {})
+    benchmark_scope = run.get("benchmark_scope")
+    package_type = run.get("package_type")
     verification = run.get("verification", [])
     tools = run.get("tools", [])
     cases = run.get("cases", [])
@@ -133,24 +136,40 @@ def render_run_detail_html(run: dict[str, object]) -> str:
         if not isinstance(case, dict):
             continue
         case_id = escape(str(case.get("case_id", "")))
+        case_type = escape(
+            str(case.get("benchmark_type", case.get("family", "")))
+        )
+        case_evidence = escape(
+            str(case.get("evidence_level", case.get("lag_error", "")))
+        )
+        case_quality = escape(
+            str(case.get("quality_flag", case.get("false_positive", "")))
+        )
         case_rows.append(
             "<tr>"
             f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
             f"/cases/{case_id}'>{case_id}</a></td>"
-            f"<td>{escape(str(case.get('family', '')))}</td>"
-            f"<td>{escape(str(case.get('lag_error', '')))}</td>"
-            f"<td>{escape(str(case.get('false_positive', '')))}</td>"
+            f"<td>{case_type}</td>"
+            f"<td>{case_evidence}</td>"
+            f"<td>{case_quality}</td>"
             "</tr>"
         )
 
     banner_class = "banner warn" if run.get("readiness") != "ready" else "banner"
     run_id = escape(str(run.get("run_id", "")))
+    scope_line = (
+        f"<p>Scope: {escape(str(benchmark_scope))}</p>"
+        if benchmark_scope is not None
+        else ""
+    )
     body = (
         f"<p><a href='/'>All runs</a> | <a href='/api/runs/{run_id}'>JSON</a></p>"
         f"<h1>Run {run_id}</h1>"
         f"<div class='{banner_class}'>Readiness: "
         f"{escape(str(run.get('readiness', '')))}"
         f" | Warnings: {escape(warning_text)}</div>"
+        f"<p>Package type: {escape(str(package_type or 'readiness'))}</p>"
+        f"{scope_line}"
         "<h2>Summary</h2>"
         f"<pre>{escape(json.dumps(summary, indent=2, sort_keys=True))}</pre>"
         "<h2>Verification</h2>"
@@ -160,10 +179,11 @@ def render_run_detail_html(run: dict[str, object]) -> str:
         "<table><thead><tr><th>Tool</th><th>Available</th><th>Detail</th></tr></thead>"
         f"<tbody>{''.join(tool_rows)}</tbody></table>"
         "<h2>Cases</h2>"
-        "<table><thead><tr><th>Case</th><th>Family</th><th>Lag Error</th>"
-        "<th>False Positive</th></tr></thead>"
+        "<table><thead><tr><th>Case</th><th>Type</th><th>Evidence</th>"
+        "<th>Quality</th></tr></thead>"
         f"<tbody>{''.join(case_rows)}</tbody></table>"
         f"<p><a href='/files/{run_id}/summary.md'>Run summary file</a></p>"
+        f"<p><a href='/files/{run_id}/dossier.md'>Benchmark dossier</a></p>"
     )
     return _html_page(f"Run {run.get('run_id', '')}", body)
 
@@ -173,7 +193,9 @@ def render_case_detail_html(run_id: str, case: dict[str, object]) -> str:
     case_id = str(case.get("case_id", ""))
     artifact_paths = case.get("artifact_paths", {})
     file_links = []
-    artifact_items = artifact_paths.items() if isinstance(artifact_paths, dict) else []
+    artifact_items = (
+        artifact_paths.items() if isinstance(artifact_paths, dict) else []
+    )
     for label, path in artifact_items:
         file_links.append(
             f"<li><a href='/files/{escape(str(path))}'>{escape(str(label))}</a></li>"

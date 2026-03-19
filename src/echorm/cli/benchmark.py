@@ -6,6 +6,7 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
+from ..eval.first_benchmark import materialize_first_benchmark_package
 from ..eval.readiness import materialize_benchmark_readiness_run
 
 
@@ -42,6 +43,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("readiness", help="Materialize a benchmark readiness bundle.")
+    subparsers.add_parser(
+        "first-benchmark",
+        help="Materialize the first bounded benchmark package.",
+    )
     return parser
 
 
@@ -61,6 +66,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             artifact_root=artifact_root,
             run_id=args.run_id,
             profile=args.profile,
+            seed=args.seed,
+        )
+        print(index_path)
+        return 0
+    if args.command == "first-benchmark":
+        profile = args.profile
+        if profile == "baseline":
+            profile = "first_benchmark"
+        index_path = materialize_first_benchmark_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=profile,
             seed=args.seed,
         )
         print(index_path)

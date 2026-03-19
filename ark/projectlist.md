@@ -16,7 +16,7 @@ releases:
     name: "Benchmark Core"
     status: active
     summary: "Deliver benchmark data access, calibration, inference, sonification, simulation, and validation on known lag-bearing systems."
-    projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022"]
+    projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022", "0023"]
     notes: "Validation on benchmark objects gates all later discovery claims."
   - version: "v0.3.0"
     name: "Discovery and Optimization"
@@ -299,7 +299,7 @@ projects:
   - id: "0021"
     title: "Benchmark Readiness Hardening"
     summary: "Convert the benchmark scaffold into an executable readiness surface with structured run bundles, readiness reports, and reproducible review artifacts."
-    status: implementing
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
@@ -312,7 +312,7 @@ projects:
   - id: "0022"
     title: "Benchmark Review Web Interface"
     summary: "Provide a read-only web interface for navigating benchmark runs, inspecting readiness state, and reviewing result quality."
-    status: implementing
+    status: committed
     priority: high
     release: "v0.2.0"
     files:
@@ -322,6 +322,19 @@ projects:
     dependencies: ["0021"]
     tags: [review, web, benchmarks, tailscale]
     notes: "Default network binding must use a detected Tailscale address, with localhost available only by explicit flag."
+  - id: "0023"
+    title: "First Benchmark Execution Package"
+    summary: "Define and execute the first benchmark package with explicit scientific scope, evidence levels, fixture-backed real-data checks, and synthetic lag-recovery cases."
+    status: committed
+    priority: high
+    release: "v0.2.0"
+    files:
+      spec: ark/specs/0023-first-benchmark-execution-package.md
+      plan: ark/plans/0023-first-benchmark-execution-package.md
+      review: null
+    dependencies: ["0006", "0007", "0010", "0016", "0017", "0021", "0022"]
+    tags: [benchmarks, validation, evidence, scientific-rigor]
+    notes: "The first benchmark must distinguish real-fixture ingest fidelity from synthetic lag-recovery evidence and must not overstate scientific claims."
 ```
 ## Authority Notes
 
