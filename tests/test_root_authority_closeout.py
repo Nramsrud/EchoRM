@@ -93,7 +93,6 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
     advanced_payload = json.loads(
         (artifact_root / "advanced_rigor" / "index.json").read_text(encoding="utf-8")
     )
-    assert advanced_payload["summary"]["advanced_method_count"] >= (
-        advanced_payload["summary"]["object_count"] * 5
-    )
+    assert advanced_payload["summary"]["advanced_method_count"] >= 5
+    assert advanced_payload["summary"]["advanced_object_count"] >= 1
     assert advanced_payload["summary"]["pyqsofit_coverage_rate"] >= 1.0

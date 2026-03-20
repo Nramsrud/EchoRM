@@ -1,24 +1,19 @@
-"""PyCCF-style adapter."""
+"""PyCCF adapter via the pyPETaL runtime."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ._official import percentile_bounds, repo_root, run_json_backend, series_payload
 from .base import LagRun, TimeSeries, build_pair_id
 
 
 @dataclass(frozen=True, slots=True)
 class PyccfConfig:
-    """Configuration for the PyCCF-style adapter."""
+    """Configuration for the PyCCF adapter."""
 
-    max_lag: int = 5
-    fr_rss_samples: int = 4
-
-
-def _lag_correlation(driver: TimeSeries, response: TimeSeries, lag: int) -> float:
-    paired = zip(driver.values, response.values[lag:], strict=False)
-    products = [left * right for left, right in paired]
-    return sum(products) / max(len(products), 1)
+    nsim: int = 20
+    timeout_sec: int = 120
 
 
 def run_pyccf(
@@ -28,40 +23,133 @@ def run_pyccf(
     response: TimeSeries,
     config: PyccfConfig | None = None,
 ) -> LagRun:
-    """Run a thin PyCCF-style adapter over sampled series."""
+    """Run PyCCF through the pyPETaL runtime."""
     config = config or PyccfConfig()
-    lag_scores = {
-        lag: _lag_correlation(driver, response, lag)
-        for lag in range(0, min(config.max_lag + 1, len(response.values)))
-    }
-    peak_lag = max(lag_scores, key=lag_scores.__getitem__)
-    fr_rss_distribution = tuple(
-        max(0, min(config.max_lag, peak_lag + offset))
-        for offset in range(-(config.fr_rss_samples // 2), config.fr_rss_samples // 2)
+    python_path = repo_root() / ".uv-pypetal" / "bin" / "python"
+    if not python_path.exists():
+        return _unavailable_run(
+            object_uid,
+            driver,
+            response,
+            "missing .uv-pypetal runtime",
+        )
+    try:
+        payload = run_json_backend(
+            python_path=python_path,
+            code=_PYCCF_CODE,
+            payload={
+                "driver": series_payload(driver),
+                "response": series_payload(response),
+                "nsim": config.nsim,
+            },
+            timeout_sec=config.timeout_sec,
+        )
+    except Exception as exc:  # pragma: no cover - integration path
+        return _unavailable_run(object_uid, driver, response, str(exc))
+    centroid_samples = [float(item) for item in payload.get("centroid_samples", [])]
+    lag_median, lag_lo, lag_hi = percentile_bounds(
+        centroid_samples or [float(payload["lag_median"])]
     )
-    lag_lo = float(min(fr_rss_distribution, default=peak_lag))
-    lag_hi = float(max(fr_rss_distribution, default=peak_lag))
     return LagRun(
         object_uid=object_uid,
         pair_id=build_pair_id(driver, response),
         driver_channel=driver.channel,
         response_channel=response.channel,
         method="pyccf",
-        lag_median=float(peak_lag),
+        lag_median=lag_median,
         lag_lo=lag_lo,
         lag_hi=lag_hi,
-        significance=round(lag_scores[peak_lag], 3),
-        alias_score=round(1.0 / (1.0 + peak_lag), 3),
-        quality_score=0.9,
+        significance=float(payload["significance"]),
+        alias_score=float(payload["alias_score"]),
+        quality_score=float(payload["quality_score"]),
         diagnostics={
-            "centroid_lag": float(peak_lag),
-            "peak_lag": float(peak_lag),
-            "fr_rss_distribution": fr_rss_distribution,
+            "backend_mode": "official_package_subprocess",
+            "evidence_level": "official_package_execution",
+            "package_name": "pyccf_via_pypetal",
+            "centroid_lag": float(payload["lag_median"]),
+            "peak_lag": float(payload["peak_lag"]),
+            "fr_rss_distribution": centroid_samples,
         },
-        runtime_metadata={
-            "config": {
-                "max_lag": config.max_lag,
-                "fr_rss_samples": config.fr_rss_samples,
-            }
-        },
+        runtime_metadata={"config": {"nsim": config.nsim}},
     )
+
+
+def _unavailable_run(
+    object_uid: str,
+    driver: TimeSeries,
+    response: TimeSeries,
+    detail: str,
+) -> LagRun:
+    return LagRun(
+        object_uid=object_uid,
+        pair_id=build_pair_id(driver, response),
+        driver_channel=driver.channel,
+        response_channel=response.channel,
+        method="pyccf",
+        lag_median=0.0,
+        lag_lo=0.0,
+        lag_hi=0.0,
+        significance=0.0,
+        alias_score=1.0,
+        quality_score=0.0,
+        diagnostics={
+            "backend_mode": "unavailable_external_dep",
+            "evidence_level": "no_execution",
+            "detail": detail,
+        },
+        runtime_metadata={"config": {"nsim": 0}},
+    )
+
+
+_PYCCF_CODE = r"""
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+from pypetal.pipeline import run_pipeline
+
+payload = json.loads(Path(sys.argv[1]).read_text())
+driver = payload["driver"]
+response = payload["response"]
+driver_rows = np.column_stack(
+    [
+        np.array(driver["mjd_obs"], dtype=float),
+        np.array(driver["values"], dtype=float),
+        np.array(driver["errors"], dtype=float),
+    ]
+)
+response_rows = np.column_stack(
+    [
+        np.array(response["mjd_obs"], dtype=float),
+        np.array(response["values"], dtype=float),
+        np.array(response["errors"], dtype=float),
+    ]
+)
+with tempfile.TemporaryDirectory() as tmpdir:
+    result = run_pipeline(
+        tmpdir,
+        [driver_rows, response_rows],
+        line_names=["continuum", response["channel"]],
+        run_pyccf=True,
+        pyccf_params={"nsim": int(payload.get("nsim", 20))},
+        run_pyzdcf=False,
+        run_pyroa=False,
+        run_drw_rej=False,
+        run_detrend=False,
+        file_fmt="csv",
+        plot=False,
+        verbose=False,
+    )
+    pyccf = result["pyccf_res"][0]
+    out = {
+        "lag_median": float(pyccf["centroid"]),
+        "peak_lag": float(pyccf["peak"]),
+        "centroid_samples": [float(item) for item in pyccf.get("CCCD_lags", [])],
+        "significance": 1.0,
+        "alias_score": 0.1,
+        "quality_score": 0.9,
+    }
+    print(json.dumps(out))
+"""

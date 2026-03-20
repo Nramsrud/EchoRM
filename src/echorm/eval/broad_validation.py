@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -31,6 +32,10 @@ from .readiness import (
 from .validation import ValidationResult
 
 JSONDict = dict[str, object]
+_OBJECT_BUNDLE_CACHE: dict[
+    tuple[str, float, bool, bool],
+    tuple[tuple[float, ...], tuple[float, ...], JSONDict, list[dict[str, object]]],
+] = {}
 
 
 def _artifact_paths(run_id: str, group: str, item_id: str) -> dict[str, str]:
@@ -217,6 +222,7 @@ def _build_method_records(
     records: list[JSONDict] = []
     for result in _dict_list(method_suite, "method_results"):
         record = _mapping_value(result, "record")
+        diagnostics = _mapping_value(result, "diagnostics")
         runtime_metadata = _mapping_value(result, "runtime_metadata")
         method = str(record.get("method", ""))
         method_id = f"{object_uid}-{method}"
@@ -232,6 +238,10 @@ def _build_method_records(
                 "lag_error": round(abs(lag_median - literature_lag), 3),
                 "quality_score": _float_value(record, "quality_score"),
                 "runtime_sec": _float_value(runtime_metadata, "runtime_sec"),
+                "backend_mode": str(diagnostics.get("backend_mode", "native")),
+                "execution_evidence": str(
+                    diagnostics.get("evidence_level", "literal_execution")
+                ),
                 "artifact_paths": _artifact_paths(run_id, "methods", method_id),
             }
         )
@@ -287,6 +297,53 @@ def _object_summary(
     }
 
 
+def _build_cached_object_bundle(
+    *,
+    object_record: BenchmarkObject,
+    contamination: float,
+    state_change: bool,
+    include_advanced: bool,
+) -> tuple[tuple[float, ...], tuple[float, ...], JSONDict, list[dict[str, object]]]:
+    cache_key = (
+        object_record.object_uid,
+        contamination,
+        state_change,
+        include_advanced,
+    )
+    cached = _OBJECT_BUNDLE_CACHE.get(cache_key)
+    if cached is None:
+        driver_values = derive_driver_series(object_record)
+        lag_steps = max(1, round(object_record.literature_lag_day))
+        response_values = derive_response_series(
+            driver_values,
+            lag_steps=lag_steps,
+            contamination=contamination,
+            state_change=state_change,
+        )
+        method_suite = run_method_suite(
+            object_record=object_record,
+            driver_values=driver_values,
+            response_values=response_values,
+            lag_steps=lag_steps,
+            include_advanced=include_advanced,
+        )
+        line_diagnostics = build_line_diagnostics(object_record)
+        cached = (
+            driver_values,
+            response_values,
+            method_suite,
+            line_diagnostics,
+        )
+        _OBJECT_BUNDLE_CACHE[cache_key] = cached
+    driver_values, response_values, method_suite, line_diagnostics = cached
+    return (
+        tuple(driver_values),
+        tuple(response_values),
+        copy.deepcopy(method_suite),
+        copy.deepcopy(line_diagnostics),
+    )
+
+
 def _build_object_payload(
     *,
     object_record: BenchmarkObject,
@@ -296,22 +353,15 @@ def _build_object_payload(
     state_change: bool = False,
     include_advanced: bool = False,
 ) -> tuple[dict[str, object], dict[str, object]]:
-    driver_values = derive_driver_series(object_record)
+    driver_values, response_values, method_suite, line_diagnostics = (
+        _build_cached_object_bundle(
+            object_record=object_record,
+            contamination=contamination,
+            state_change=state_change,
+            include_advanced=include_advanced,
+        )
+    )
     lag_steps = max(1, round(object_record.literature_lag_day))
-    response_values = derive_response_series(
-        driver_values,
-        lag_steps=lag_steps,
-        contamination=contamination,
-        state_change=state_change,
-    )
-    method_suite = run_method_suite(
-        object_record=object_record,
-        driver_values=driver_values,
-        response_values=response_values,
-        lag_steps=lag_steps,
-        include_advanced=include_advanced,
-    )
-    line_diagnostics = build_line_diagnostics(object_record)
     render_artifacts = build_render_artifacts(
         object_record=object_record,
         driver_values=driver_values,

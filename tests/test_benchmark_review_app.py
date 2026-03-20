@@ -258,6 +258,12 @@ def test_review_app_serves_root_closeout_routes(tmp_path: Path) -> None:
     _materialize_run(tmp_path)
     _materialize_first_benchmark_run(tmp_path)
     _materialize_root_closeout_runs(tmp_path)
+    discovery_payload = json.loads(
+        (tmp_path / "discovery_analysis" / "index.json").read_text(encoding="utf-8")
+    )
+    candidates = discovery_payload.get("candidates", [])
+    assert isinstance(candidates, list) and candidates
+    candidate_id = str(candidates[0]["object_uid"])
     server = create_review_server(
         artifact_root=tmp_path,
         host="127.0.0.1",
@@ -272,7 +278,7 @@ def test_review_app_serves_root_closeout_routes(tmp_path: Path) -> None:
         ).read().decode("utf-8")
         candidate_payload = json.loads(
             urlopen(
-                f"http://127.0.0.1:{port}/api/runs/discovery_analysis/candidates/ztf-holdout-001"
+                f"http://127.0.0.1:{port}/api/runs/discovery_analysis/candidates/{candidate_id}"
             ).read().decode("utf-8")
         )
         experiment_text = urlopen(
@@ -287,6 +293,6 @@ def test_review_app_serves_root_closeout_routes(tmp_path: Path) -> None:
         server.server_close()
 
     assert "advanced_rigor" in advanced_text
-    assert candidate_payload["object_uid"] == "ztf-holdout-001"
+    assert candidate_payload["object_uid"] == candidate_id
     assert "Experiment optuna" in experiment_text
     assert "Bundle v1.0.0-rc1" in bundle_text
