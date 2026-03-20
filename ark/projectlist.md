@@ -22,7 +22,7 @@ releases:
     name: "Discovery, Optimization, and Scale-Out"
     status: planning
     summary: "Complete the root-scope scientific program beyond the benchmark gate: advanced real-data inference, optimization, discovery hold-out analysis, analyst review surfaces, and release preparation."
-    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043"]
+    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046"]
     notes: "Discovery work remains downstream of fixed benchmark suites and immutable labels, and benchmark readiness remains a prerequisite."
   - version: "v1.0.0"
     name: "Open Science Release"
@@ -621,6 +621,19 @@ projects:
     dependencies: ["0038", "0041", "0042", "0043", "0044"]
     tags: [audit, conformance, readiness, governance]
     notes: "This gate rejects count-only or placeholder compliance and is the sole acceptable root-closeout decision point."
+  - id: "0046"
+    title: "Adversarial Root Authority Gap-Closure Plan"
+    summary: "Define the strict remediation plan that addresses the latest adversarial findings and makes literal root-authority satisfaction the only acceptable completion state."
+    status: specified
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/playbooks/0046-adversarial-root-authority-gap-closure-plan.md
+      plan: null
+      review: null
+    dependencies: ["0038", "0039", "0040", "0041", "0042", "0043", "0044", "0045"]
+    tags: [playbook, remediation, adversarial-review, root-authority]
+    notes: "This playbook supersedes any ambiguous interpretation of 0038 by mapping the current adversarial findings one-to-one to literal implementation, deliverable, and readiness obligations."
 ```
 ## Authority Notes
 
