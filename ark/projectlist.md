@@ -22,13 +22,13 @@ releases:
     name: "Discovery, Optimization, and Scale-Out"
     status: planning
     summary: "Complete the root-scope scientific program beyond the benchmark gate: advanced real-data inference, optimization, discovery hold-out analysis, analyst review surfaces, and release preparation."
-    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036"]
+    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043"]
     notes: "Discovery work remains downstream of fixed benchmark suites and immutable labels, and benchmark readiness remains a prerequisite."
   - version: "v1.0.0"
     name: "Open Science Release"
     status: planning
     summary: "Package methods, catalog outputs, and reproducible artifacts for external release."
-    projects: ["0020", "0037"]
+    projects: ["0020", "0037", "0044", "0045"]
     notes: "Do not mark released until validation, discovery, and release artifacts are integrated."
 ```
 
@@ -438,7 +438,7 @@ projects:
       review: null
     dependencies: ["0024", "0018", "0019", "0020"]
     tags: [playbook, roadmap, scientific-rigor, root-scope]
-    notes: "This playbook treats the benchmark gate as a prerequisite and maps the remaining real-data, discovery, optimization, and release obligations."
+    notes: "This playbook mapped the first root-scope closeout attempt. Literal root-authority compliance is now governed by 0038 after adversarial review found surrogate and proxy gaps."
   - id: "0032"
     title: "Advanced Method and Spectral Rigor Completion"
     summary: "Close the remaining real-data inference and spectral-analysis gaps required by the root authority documents, including advanced RM backends and PyQSOFit-backed decomposition."
@@ -451,7 +451,7 @@ projects:
       review: null
     dependencies: ["0025", "0026", "0027", "0028"]
     tags: [rm, spectra, advanced-methods, real-data]
-    notes: "This package is where pyPETaL, LITMUS, MICA2, EzTao, celerite2, and PyQSOFit move from declared scope into validated execution."
+    notes: "Implemented artifacts exist, but adversarial review found surrogate backend and pseudo-fit compliance gaps. Literal backend satisfaction is deferred to 0039 and 0041."
   - id: "0033"
     title: "Corpus Scale-Out and Discovery Hold-Out Freeze"
     summary: "Scale the benchmark and discovery corpora to the full root-scope manifests with explicit hold-out governance, strata, and provenance."
@@ -464,7 +464,7 @@ projects:
       review: null
     dependencies: ["0006", "0007", "0008", "0009", "0025"]
     tags: [data, manifests, hold-out, discovery]
-    notes: "This package freezes the broad silver population, the full gold set, and the discovery-pool manifests needed by later optimization and anomaly work."
+    notes: "Implemented artifacts exist, but adversarial review found fixture-slice rather than literal corpus-scale compliance. Literal corpus freeze is deferred to 0040."
   - id: "0034"
     title: "Benchmark-Governed Optimization and Agent Loop Completion"
     summary: "Implement the root-scope optimization layer with Ray Tune, Optuna, Ax, immutable benchmark guards, and auditable experiment outputs."
@@ -477,7 +477,7 @@ projects:
       review: null
     dependencies: ["0018", "0032", "0033"]
     tags: [optimization, autoresearch, experiments, governance]
-    notes: "This package upgrades the current optimization scaffold into the benchmark-driven experiment loop described by the authority plan."
+    notes: "Implemented artifacts exist, but adversarial review found scaffolded rather than literal optimizer orchestration and objective compliance. Literal optimization closure is deferred to 0042."
   - id: "0035"
     title: "Discovery Hold-Out and CLAGN Scientific Analysis"
     summary: "Execute the root-scope discovery program on hold-out ZTF and CLAGN corpora with interpretable anomaly ranking, transition timelines, and candidate evidence bundles."
@@ -490,7 +490,7 @@ projects:
       review: null
     dependencies: ["0019", "0032", "0033", "0034"]
     tags: [discovery, ztf, clagn, anomaly]
-    notes: "This package closes the discovery claims gap with ranked catalogs, transition analyses, and follow-up prioritization backed by explicit evidence."
+    notes: "Implemented artifacts exist, but adversarial review found fixture-authored rather than real-data discovery evidence. Literal discovery closure is deferred to 0043."
   - id: "0036"
     title: "Scientific Analyst Workbench and Discovery Review Surface"
     summary: "Extend the read-only review application into the analyst-facing workbench required for benchmark, discovery, and release-phase scientific review."
@@ -503,7 +503,7 @@ projects:
       review: null
     dependencies: ["0033", "0035"]
     tags: [review, web, discovery, analyst]
-    notes: "The root program is not operationally complete until discovery and release outputs are inspectable through the tracked analysis surface."
+    notes: "The analyst workbench remains required. Literal root closeout now also requires it to expose real-data execution, release deliverables, and final conformance evidence under 0044 and 0045."
   - id: "0037"
     title: "Public Release and Publication Closeout"
     summary: "Assemble the externally reviewable methods release, anomaly catalog, audio archive, and publication-facing artifacts required by the root authority plan."
@@ -516,7 +516,111 @@ projects:
       review: null
     dependencies: ["0020", "0035", "0036"]
     tags: [release, catalog, publication, provenance]
-    notes: "This package closes the root plan only after validated methods, discovery outputs, and review surfaces are integrated and provenance-complete."
+    notes: "Implemented artifacts exist, but adversarial review found placeholder release outputs rather than literal publication-grade deliverables. Literal release closure is deferred to 0044."
+  - id: "0038"
+    title: "Literal Root Authority Remediation Playbook"
+    summary: "Define the remediation sequence that closes every adversarially identified gap between the current implementation and the literal requirements of the root authority documents."
+    status: specified
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/playbooks/0038-literal-root-authority-remediation-playbook.md
+      plan: null
+      review: null
+    dependencies: ["0031", "0032", "0033", "0034", "0035", "0036", "0037"]
+    tags: [playbook, remediation, root-authority, scientific-rigor]
+    notes: "This playbook replaces proxy-oriented closeout with literal root-authority compliance requirements and explicit non-acceptance rules."
+  - id: "0039"
+    title: "Real Backend and Spectral Backend Integration"
+    summary: "Replace surrogate RM and spectral stand-ins with real third-party backend integrations and real execution diagnostics on tracked corpora."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0039-real-backend-spectral-backend-integration.md
+      plan: ark/plans/0039-real-backend-spectral-backend-integration.md
+      review: null
+    dependencies: ["0038", "0011", "0013", "0032"]
+    tags: [rm, spectra, backends, real-data]
+    notes: "This package closes the surrogate-wrapper and pseudo-fit gap for pyPETaL, LITMUS, MICA2, EzTao, celerite2, and PyQSOFit."
+  - id: "0040"
+    title: "Full Corpus Acquisition, Raw Preservation, and Freeze"
+    summary: "Acquire, normalize, and freeze the literal gold, silver, and discovery corpora required by the root authority documents with preserved raw source products and provenance."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0040-full-corpus-acquisition-raw-preservation-freeze.md
+      plan: ark/plans/0040-full-corpus-acquisition-raw-preservation-freeze.md
+      review: null
+    dependencies: ["0038", "0006", "0007", "0008", "0009", "0033"]
+    tags: [data, manifests, provenance, freeze]
+    notes: "This package replaces fixture-slice compliance with literal corpus-scale acquisition, raw preservation, and immutable freeze artifacts."
+  - id: "0041"
+    title: "Real-Data Benchmark Execution and Validation Closure"
+    summary: "Execute the full validation program on real continuum and line-response measurements from the frozen corpora and close the proxy-response benchmark gap."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0041-real-data-benchmark-execution-validation-closure.md
+      plan: ark/plans/0041-real-data-benchmark-execution-validation-closure.md
+      review: null
+    dependencies: ["0038", "0039", "0040", "0012", "0017"]
+    tags: [validation, benchmarks, real-data, response]
+    notes: "This package requires real measured continuum and line-response series, full null diagnostics, and literature-facing benchmark outputs at root scale."
+  - id: "0042"
+    title: "Root Optimization Orchestration and Objective Completion"
+    summary: "Implement literal Ray Tune, Optuna, and Ax optimization against the full root objective surface with immutable benchmark and hold-out guards."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0042-root-optimization-orchestration-objective-completion.md
+      plan: ark/plans/0042-root-optimization-orchestration-objective-completion.md
+      review: null
+    dependencies: ["0038", "0040", "0041", "0018", "0034"]
+    tags: [optimization, ray, optuna, ax, objectives]
+    notes: "This package replaces scaffolded candidate scoring with literal optimizer backends, Pareto objectives, guarded mutation surfaces, and experiment dashboards."
+  - id: "0043"
+    title: "Hold-Out Discovery and CLAGN Real-Data Analysis"
+    summary: "Run the discovery and CLAGN program on the frozen real hold-out pool using validated pipeline outputs rather than authored fixture scores."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0043-holdout-discovery-clagn-real-data-analysis.md
+      plan: ark/plans/0043-holdout-discovery-clagn-real-data-analysis.md
+      review: null
+    dependencies: ["0038", "0040", "0041", "0042", "0019", "0035"]
+    tags: [discovery, clagn, hold-out, anomaly]
+    notes: "This package closes the fixture-authored discovery gap with validated anomaly scoring, transition analysis, and candidate evidence on real hold-out data."
+  - id: "0044"
+    title: "Publication-Grade Release, Analyst Workbench, and Archive Assembly"
+    summary: "Assemble the literal root-plan release outputs, analyst workbench views, publication artifacts, and provenance-complete benchmark and audio archives."
+    status: conceived
+    priority: high
+    release: "v1.0.0"
+    files:
+      spec: ark/specs/0044-publication-grade-release-analyst-workbench-archive-assembly.md
+      plan: ark/plans/0044-publication-grade-release-analyst-workbench-archive-assembly.md
+      review: null
+    dependencies: ["0038", "0041", "0042", "0043", "0020", "0036", "0037"]
+    tags: [release, publication, review, archive]
+    notes: "This package closes the methods-paper, catalog-paper, archive, and analyst-review deliverables required by the root authority documents."
+  - id: "0045"
+    title: "Literal Root Authority Conformance Audit and Final Readiness Gate"
+    summary: "Implement the final root-authority conformance audit that fails unless the implementation, deliverables, and readiness state satisfy the literal root requirements."
+    status: conceived
+    priority: high
+    release: "v1.0.0"
+    files:
+      spec: ark/specs/0045-literal-root-authority-conformance-audit-final-readiness-gate.md
+      plan: ark/plans/0045-literal-root-authority-conformance-audit-final-readiness-gate.md
+      review: null
+    dependencies: ["0038", "0041", "0042", "0043", "0044"]
+    tags: [audit, conformance, readiness, governance]
+    notes: "This gate rejects count-only or placeholder compliance and is the sole acceptable root-closeout decision point."
 ```
 ## Authority Notes
 
