@@ -19,16 +19,16 @@ releases:
     projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022", "0023", "0024", "0025", "0026", "0027", "0028", "0029", "0030"]
     notes: "Validation on benchmark objects gates all later discovery claims."
   - version: "v0.3.0"
-    name: "Discovery and Optimization"
+    name: "Discovery, Optimization, and Scale-Out"
     status: planning
-    summary: "Extend the validated pipeline into benchmark-driven optimization and CLAGN-oriented anomaly discovery."
-    projects: ["0018", "0019"]
-    notes: "Discovery work remains downstream of fixed benchmark suites and immutable labels."
+    summary: "Complete the root-scope scientific program beyond the benchmark gate: advanced real-data inference, optimization, discovery hold-out analysis, analyst review surfaces, and release preparation."
+    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036"]
+    notes: "Discovery work remains downstream of fixed benchmark suites and immutable labels, and benchmark readiness remains a prerequisite."
   - version: "v1.0.0"
     name: "Open Science Release"
     status: planning
     summary: "Package methods, catalog outputs, and reproducible artifacts for external release."
-    projects: ["0020"]
+    projects: ["0020", "0037"]
     notes: "Do not mark released until validation, discovery, and release artifacts are integrated."
 ```
 
@@ -426,6 +426,97 @@ projects:
     dependencies: ["0022", "0026", "0027", "0028", "0029"]
     tags: [validation, review, web, claims-audit]
     notes: "The gate is not closed unless the tracked analysis surface and claims audit make the validation outputs inspectable and govern promotion correctly."
+  - id: "0031"
+    title: "Root Authority Closeout Playbook"
+    summary: "Define the remaining sequence required to satisfy the full root project plan and root agent specification beyond the current benchmark-validation gate."
+    status: committed
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/playbooks/0031-root-authority-closeout-playbook.md
+      plan: null
+      review: null
+    dependencies: ["0024", "0018", "0019", "0020"]
+    tags: [playbook, roadmap, scientific-rigor, root-scope]
+    notes: "This playbook treats the benchmark gate as a prerequisite and maps the remaining real-data, discovery, optimization, and release obligations."
+  - id: "0032"
+    title: "Advanced Method and Spectral Rigor Completion"
+    summary: "Close the remaining real-data inference and spectral-analysis gaps required by the root authority documents, including advanced RM backends and PyQSOFit-backed decomposition."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: null
+      plan: null
+      review: null
+    dependencies: ["0025", "0026", "0027", "0028"]
+    tags: [rm, spectra, advanced-methods, real-data]
+    notes: "This package is where pyPETaL, LITMUS, MICA2, EzTao, celerite2, and PyQSOFit move from declared scope into validated execution."
+  - id: "0033"
+    title: "Corpus Scale-Out and Discovery Hold-Out Freeze"
+    summary: "Scale the benchmark and discovery corpora to the full root-scope manifests with explicit hold-out governance, strata, and provenance."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: null
+      plan: null
+      review: null
+    dependencies: ["0006", "0007", "0008", "0009", "0025"]
+    tags: [data, manifests, hold-out, discovery]
+    notes: "This package freezes the broad silver population, the full gold set, and the discovery-pool manifests needed by later optimization and anomaly work."
+  - id: "0034"
+    title: "Benchmark-Governed Optimization and Agent Loop Completion"
+    summary: "Implement the root-scope optimization layer with Ray Tune, Optuna, Ax, immutable benchmark guards, and auditable experiment outputs."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: null
+      plan: null
+      review: null
+    dependencies: ["0018", "0032", "0033"]
+    tags: [optimization, autoresearch, experiments, governance]
+    notes: "This package upgrades the current optimization scaffold into the benchmark-driven experiment loop described by the authority plan."
+  - id: "0035"
+    title: "Discovery Hold-Out and CLAGN Scientific Analysis"
+    summary: "Execute the root-scope discovery program on hold-out ZTF and CLAGN corpora with interpretable anomaly ranking, transition timelines, and candidate evidence bundles."
+    status: conceived
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: null
+      plan: null
+      review: null
+    dependencies: ["0019", "0032", "0033", "0034"]
+    tags: [discovery, ztf, clagn, anomaly]
+    notes: "This package closes the discovery claims gap with ranked catalogs, transition analyses, and follow-up prioritization backed by explicit evidence."
+  - id: "0036"
+    title: "Scientific Analyst Workbench and Discovery Review Surface"
+    summary: "Extend the read-only review application into the analyst-facing workbench required for benchmark, discovery, and release-phase scientific review."
+    status: conceived
+    priority: medium
+    release: "v0.3.0"
+    files:
+      spec: null
+      plan: null
+      review: null
+    dependencies: ["0033", "0035"]
+    tags: [review, web, discovery, analyst]
+    notes: "The root program is not operationally complete until discovery and release outputs are inspectable through the tracked analysis surface."
+  - id: "0037"
+    title: "Public Release and Publication Closeout"
+    summary: "Assemble the externally reviewable methods release, anomaly catalog, audio archive, and publication-facing artifacts required by the root authority plan."
+    status: conceived
+    priority: high
+    release: "v1.0.0"
+    files:
+      spec: null
+      plan: null
+      review: null
+    dependencies: ["0020", "0035", "0036"]
+    tags: [release, catalog, publication, provenance]
+    notes: "This package closes the root plan only after validated methods, discovery outputs, and review surfaces are integrated and provenance-complete."
 ```
 ## Authority Notes
 
