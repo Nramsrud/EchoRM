@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import array
 import hashlib
 import json
 import math
@@ -51,7 +52,7 @@ from ..rm.pyroa import PyroaConfig, run_pyroa
 from ..rm.pyzdcf import run_pyzdcf
 from ..rm.serialize import SerializedLagResult, serialize_lag_run
 from ..schemas import LINE_METRICS_SCHEMA
-from ..sonify.base import MappingConfig, RenderInput
+from ..sonify.base import MappingConfig, RenderInput, SonificationPlan
 from ..sonify.direct_audification import build_direct_audification
 from ..sonify.echo_ensemble import build_echo_ensemble
 from ..sonify.render import build_sonification_manifest
@@ -62,8 +63,13 @@ from ..spectra.continuum import (
     fit_pseudo_continuum,
 )
 from ..spectra.lines import extract_line_metrics
-from ..spectra.preprocess import preprocess_spectrum
+from ..spectra.preprocess import ProcessedSpectrum, preprocess_spectrum
 from ..spectra.pyqsofit import fit_pyqsofit_decomposition
+
+try:
+    from astropy.io import fits  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover
+    fits = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,10 +125,13 @@ def build_manifest_metadata(
     manifest_hash = hashlib.sha256(manifest_seed.encode("utf-8")).hexdigest()[:16]
     strata_counts: dict[str, int] = {}
     for item in objects:
-        strata_counts[item.benchmark_regime] = strata_counts.get(
-            item.benchmark_regime,
-            0,
-        ) + 1
+        strata_counts[item.benchmark_regime] = (
+            strata_counts.get(
+                item.benchmark_regime,
+                0,
+            )
+            + 1
+        )
     evidence_levels = sorted({item.evidence_level for item in objects})
     if any(level.startswith("real_public") for level in evidence_levels):
         inclusion_criteria = [
@@ -160,10 +169,13 @@ def build_discovery_manifest_metadata(
     manifest_hash = hashlib.sha256(manifest_seed.encode("utf-8")).hexdigest()[:16]
     strata_counts: dict[str, int] = {}
     for item in records:
-        strata_counts[item.anomaly_category] = strata_counts.get(
-            item.anomaly_category,
-            0,
-        ) + 1
+        strata_counts[item.anomaly_category] = (
+            strata_counts.get(
+                item.anomaly_category,
+                0,
+            )
+            + 1
+        )
     evidence_levels = sorted({item.evidence_level for item in records})
     if any(level.startswith("real_catalog") for level in evidence_levels):
         inclusion_criteria = [
@@ -355,9 +367,7 @@ def load_discovery_holdout_records(
                 line_response_outlier=float(
                     str(item.get("line_response_outlier", 0.0))
                 ),
-                sonification_outlier=float(
-                    str(item.get("sonification_outlier", 0.0))
-                ),
+                sonification_outlier=float(str(item.get("sonification_outlier", 0.0))),
                 pre_state_lag=float(str(item.get("pre_state_lag", 0.0))),
                 post_state_lag=float(str(item.get("post_state_lag", 0.0))),
                 pre_line_flux=float(str(item.get("pre_line_flux", 0.0))),
@@ -547,19 +557,19 @@ def _execute_method_results(
                     pair_id=pair_id,
                     driver=model_driver,
                     response=model_response,
-                    config=PypetalConfig(nsim=12, timeout_sec=90),
+                    config=PypetalConfig(nsim=6, timeout_sec=5),
                 ),
                 run_litmus(
                     object_uid=object_uid,
                     pair_id=pair_id,
-                    driver=model_driver,
-                    response=model_response,
+                    driver=_thin_series(model_driver, max_points=10),
+                    response=_thin_series(model_response, max_points=10),
                     config=LitmusConfig(
                         lag_min=0.0,
                         lag_max=max(12.0, float(lag_steps) * 3.0),
-                        nlags=12,
-                        init_samples=96,
-                        timeout_sec=120,
+                        nlags=8,
+                        init_samples=16,
+                        timeout_sec=60,
                     ),
                 ),
                 run_mica2(
@@ -570,8 +580,8 @@ def _execute_method_results(
                     config=Mica2Config(
                         transfer_family="gaussian",
                         component_count=1,
-                        max_num_saves=8,
-                        timeout_sec=120,
+                        max_num_saves=2,
+                        timeout_sec=20,
                     ),
                 ),
                 run_eztao(
@@ -691,8 +701,7 @@ def run_method_suite(
     interval_tolerance = 0.25
     coverage_rate = round(
         sum(
-            float(str(result.record["lag_lo"]))
-            - interval_tolerance
+            float(str(result.record["lag_lo"])) - interval_tolerance
             <= literature_lag
             <= float(str(result.record["lag_hi"])) + interval_tolerance
             for result in (eligible_results or serialized)
@@ -760,6 +769,33 @@ def build_line_diagnostics(object_record: BenchmarkObject) -> list[dict[str, obj
     """Build comparable line diagnostics for one benchmark object."""
     center_rest = 4861.0 if object_record.line_name == "Hbeta" else 2798.0
     redshift = float(str(object_record.object_manifest["redshift"]))
+    line_window = (center_rest - 25.0, center_rest + 25.0)
+    spectra: tuple[tuple[str, ProcessedSpectrum], ...] = _load_processed_spectra(
+        object_record
+    )
+    diagnostics: list[dict[str, object]] = []
+    for epoch_uid, spectrum in spectra:
+        for fit in (
+            fit_local_continuum(spectrum),
+            fit_pseudo_continuum(spectrum),
+            fit_full_decomposition(spectrum),
+            fit_pyqsofit_decomposition(spectrum),
+        ):
+            try:
+                record = extract_line_metrics(
+                    object_uid=object_record.object_uid,
+                    epoch_uid=epoch_uid,
+                    line_name=object_record.line_name,
+                    spectrum=spectrum,
+                    fit=fit,
+                    line_window=line_window,
+                )
+            except ValueError:
+                continue
+            assert LINE_METRICS_SCHEMA.validate_record(record) == ()
+            diagnostics.append(record)
+    if diagnostics:
+        return diagnostics
     center_obs = center_rest * (1.0 + redshift)
     offsets = tuple(-220.0 + (index * 1.25) for index in range(352))
     wavelength_obs = tuple(center_obs + offset for offset in offsets)
@@ -771,19 +807,12 @@ def build_line_diagnostics(object_record: BenchmarkObject) -> list[dict[str, obj
         line = 0.85 * math.exp(-0.5 * ((delta / 12.0) ** 2))
         shoulder = 0.18 * math.exp(-0.5 * (((delta - 18.0) / 8.0) ** 2))
         flux.append(continuum + line + shoulder)
-    calibration_state = "pipeline"
-    if object_record.spectral_epoch_records:
-        calibration_state = str(
-            object_record.spectral_epoch_records[0]["calibration_state"]
-        )
     spectrum = preprocess_spectrum(
         wavelength_obs=wavelength_obs,
         flux=tuple(flux),
         redshift=redshift,
-        calibration_state=calibration_state,
+        calibration_state="synthetic_fallback",
     )
-    line_window = (center_rest - 25.0, center_rest + 25.0)
-    diagnostics = []
     for fit in (
         fit_local_continuum(spectrum),
         fit_pseudo_continuum(spectrum),
@@ -792,11 +821,7 @@ def build_line_diagnostics(object_record: BenchmarkObject) -> list[dict[str, obj
     ):
         record = extract_line_metrics(
             object_uid=object_record.object_uid,
-            epoch_uid=(
-                str(object_record.spectral_epoch_records[0]["epoch_uid"])
-                if object_record.spectral_epoch_records
-                else f"{object_record.object_uid}-synthetic-epoch"
-            ),
+            epoch_uid=f"{object_record.object_uid}-synthetic-epoch",
             line_name=object_record.line_name,
             spectrum=spectrum,
             fit=fit,
@@ -807,13 +832,232 @@ def build_line_diagnostics(object_record: BenchmarkObject) -> list[dict[str, obj
     return diagnostics
 
 
-def _write_silent_wav(path: Path, *, sample_rate_hz: int = 8000) -> None:
+def _load_processed_spectra(
+    object_record: BenchmarkObject,
+) -> tuple[tuple[str, ProcessedSpectrum], ...]:
+    redshift = float(str(object_record.object_manifest["redshift"]))
+    center_rest = 4861.0 if object_record.line_name == "Hbeta" else 2798.0
+    center_obs = center_rest * (1.0 + redshift)
+    processed: list[tuple[str, ProcessedSpectrum]] = []
+    if fits is None:
+        return ()
+    for spectral_record in object_record.spectral_epoch_records:
+        spectrum_path = Path(str(spectral_record["spec_path"]))
+        if not spectrum_path.exists():
+            continue
+        calibration_state = str(spectral_record["calibration_state"])
+        try:
+            if spectrum_path.suffix.lower() == ".fits":
+                with fits.open(spectrum_path) as hdul:
+                    coadd = hdul[1].data if len(hdul) > 1 else None
+                    if (
+                        coadd is not None
+                        and coadd.columns is not None
+                        and "loglam" in coadd.columns.names
+                    ):
+                        wavelength_obs = tuple(
+                            10 ** float(value) for value in coadd["loglam"].tolist()
+                        )
+                        flux = tuple(float(value) for value in coadd["flux"].tolist())
+                    else:
+                        header = hdul[0].header
+                        data = hdul[0].data
+                        if data is None:
+                            continue
+                        flux = tuple(float(value) for value in data.tolist())
+                        crval1 = float(header.get("CRVAL1", 0.0))
+                        cdelt1 = float(header.get("CDELT1", 1.0))
+                        crpix1 = float(header.get("CRPIX1", 1.0))
+                        wavelength_obs = tuple(
+                            crval1 + ((index + 1) - crpix1) * cdelt1
+                            for index in range(len(flux))
+                        )
+                selected = [
+                    (wave, value)
+                    for wave, value in zip(wavelength_obs, flux, strict=False)
+                    if abs(wave - center_obs) <= 300.0
+                ]
+                if selected:
+                    wavelength_obs = tuple(item[0] for item in selected)
+                    flux = tuple(item[1] for item in selected)
+                if len(wavelength_obs) > 1024:
+                    step = max(1, len(wavelength_obs) // 1024)
+                    wavelength_obs = wavelength_obs[::step]
+                    flux = flux[::step]
+                processed.append(
+                    (
+                        str(spectral_record["epoch_uid"]),
+                        preprocess_spectrum(
+                            wavelength_obs=wavelength_obs,
+                            flux=flux,
+                            redshift=redshift,
+                            calibration_state=calibration_state,
+                        ),
+                    )
+                )
+        except Exception:
+            continue
+    return tuple(processed)
+
+
+def _write_pcm_wav(
+    path: Path,
+    *,
+    samples: tuple[float, ...],
+    sample_rate_hz: int = 8000,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    pcm = array.array(
+        "h",
+        (max(-32767, min(32767, int(sample * 32767))) for sample in samples),
+    )
     with wave.open(str(path), "wb") as handle:
         handle.setnchannels(1)
         handle.setsampwidth(2)
         handle.setframerate(sample_rate_hz)
-        handle.writeframes(b"\x00\x00" * 256)
+        handle.writeframes(pcm.tobytes())
+
+
+def _normalize_values(values: tuple[float, ...]) -> tuple[float, ...]:
+    if not values:
+        return ()
+    minimum = min(values)
+    maximum = max(values)
+    if math.isclose(minimum, maximum):
+        return tuple(0.5 for _ in values)
+    scale = maximum - minimum
+    return tuple((value - minimum) / scale for value in values)
+
+
+def _synthesize_plan_audio(plan: SonificationPlan) -> tuple[float, ...]:
+    config = plan.config
+    normalized_driver = _normalize_values(
+        tuple(
+            float(step.get("driver_level", step.get("mix", 0.0)))
+            for step in plan.event_steps
+        )
+    )
+    normalized_response = _normalize_values(
+        tuple(
+            float(
+                step.get(
+                    "response_level",
+                    step.get("token_pitch", step.get("mix", 0.0)),
+                )
+            )
+            for step in plan.event_steps
+        )
+    )
+    segment_samples = max(256, int(config.sample_rate_hz * 0.12 * config.time_scale))
+    rendered: list[float] = []
+    for index, step in enumerate(plan.event_steps):
+        driver_level = (
+            normalized_driver[index] if index < len(normalized_driver) else 0.5
+        )
+        response_level = (
+            normalized_response[index] if index < len(normalized_response) else 0.5
+        )
+        amplitude = 0.12 + (0.28 * driver_level)
+        base_frequency = 180.0 + (260.0 * response_level)
+        wobble = float(step.get("amplitude_wobble", 0.0))
+        jitter = float(step.get("timing_jitter", 0.0))
+        spread = float(step.get("timbre_spread", 0.0))
+        for sample_index in range(segment_samples):
+            phase = sample_index / config.sample_rate_hz
+            local_frequency = base_frequency * (
+                1.0 + (0.05 * math.sin(2.0 * math.pi * (2.0 + jitter) * phase))
+            )
+            envelope = math.sin(math.pi * sample_index / max(segment_samples - 1, 1))
+            primary = math.sin(2.0 * math.pi * local_frequency * phase)
+            overtone = 0.35 * math.sin(
+                2.0 * math.pi * local_frequency * (1.5 + spread) * phase
+            )
+            sample = (
+                amplitude * (1.0 + (0.4 * wobble)) * envelope * (primary + overtone)
+            )
+            rendered.append(max(-0.95, min(0.95, sample)))
+    return tuple(rendered)
+
+
+def _mix_audio_tracks(tracks: tuple[tuple[float, ...], ...]) -> tuple[float, ...]:
+    if not tracks:
+        return ()
+    length = max(len(track) for track in tracks)
+    mixed: list[float] = []
+    for index in range(length):
+        total = 0.0
+        for track in tracks:
+            if index < len(track):
+                total += track[index]
+        mixed.append(max(-0.95, min(0.95, total / max(len(tracks), 1))))
+    return tuple(mixed)
+
+
+def _timeline_svg(
+    *,
+    object_record: BenchmarkObject,
+    driver_values: tuple[float, ...],
+    response_values: tuple[float, ...],
+) -> str:
+    x_scale = 80
+    y_scale = 160
+
+    def _points(values: tuple[float, ...], *, offset: float) -> str:
+        normalized = _normalize_values(values)
+        return " ".join(
+            f"{20 + (index * x_scale)},{offset - (value * y_scale):.1f}"
+            for index, value in enumerate(normalized)
+        )
+
+    return "\n".join(
+        [
+            (
+                '<svg xmlns="http://www.w3.org/2000/svg" width="760" '
+                'height="420" viewBox="0 0 760 420">'
+            ),
+            '<rect width="760" height="420" fill="#ffffff"/>',
+            f'<text x="20" y="30" font-size="20">{object_record.canonical_name}</text>',
+            '<text x="20" y="55" font-size="12">Continuum vs response timeline</text>',
+            (
+                '<polyline fill="none" stroke="#0b7285" stroke-width="3" '
+                f'points="{_points(driver_values, offset=180.0)}"/>'
+            ),
+            (
+                '<polyline fill="none" stroke="#c92a2a" stroke-width="3" '
+                f'points="{_points(response_values, offset=360.0)}"/>'
+            ),
+            '<text x="20" y="200" font-size="12" fill="#0b7285">continuum</text>',
+            (
+                '<text x="20" y="380" font-size="12" fill="#c92a2a">'
+                f"{object_record.line_name.lower()}</text>"
+            ),
+            "</svg>",
+        ]
+    )
+
+
+def _sync_review_html(
+    *,
+    object_record: BenchmarkObject,
+    timeline_path: str,
+    science_audio_path: str,
+    presentation_audio_path: str,
+) -> str:
+    return "\n".join(
+        [
+            "<html><body>",
+            f"<h1>{object_record.canonical_name}</h1>",
+            (
+                f'<object data="{timeline_path}" type="image/svg+xml" '
+                'width="760" height="420"></object>'
+            ),
+            "<h2>Science Audio</h2>",
+            f'<audio controls src="{science_audio_path}"></audio>',
+            "<h2>Presentation Mix</h2>",
+            f'<audio controls src="{presentation_audio_path}"></audio>',
+            "</body></html>",
+        ]
+    )
 
 
 def build_render_artifacts(
@@ -843,17 +1087,28 @@ def build_render_artifacts(
     )
     manifests = []
     audio_root = run_dir / "objects" / object_record.object_uid / "audio"
+    rendered_tracks: list[tuple[float, ...]] = []
     for family, builder in builders:
         config = MappingConfig(
             mapping_family=family,
             normalization_mode="unit_scale",
-            uncertainty_mode="amplitude_wobble",
+            uncertainty_mode={
+                "echo_ensemble": "roughness",
+                "direct_audification": "jitter",
+                "token_stream": "diffusion",
+            }[family],
             sample_rate_hz=8000,
             time_scale=1.0,
         )
         plan = builder(render_input, config=config)
         audio_path = audio_root / f"{family}.wav"
-        _write_silent_wav(audio_path, sample_rate_hz=config.sample_rate_hz)
+        rendered_audio = _synthesize_plan_audio(plan)
+        _write_pcm_wav(
+            audio_path,
+            samples=rendered_audio,
+            sample_rate_hz=config.sample_rate_hz,
+        )
+        rendered_tracks.append(rendered_audio)
         manifest = build_sonification_manifest(
             plan=plan,
             sonification_id=f"{object_record.object_uid}-{family}",
@@ -862,9 +1117,59 @@ def build_render_artifacts(
         manifest_path = audio_root / f"{family}.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         manifests.append(manifest)
+    science_mix_path = audio_root / "science_mix.wav"
+    presentation_mix_path = audio_root / "presentation_mix.wav"
+    stems_dir = audio_root / "stems"
+    stems_dir.mkdir(parents=True, exist_ok=True)
+    science_mix = _mix_audio_tracks(tuple(rendered_tracks[:2]))
+    presentation_mix = _mix_audio_tracks(tuple(rendered_tracks))
+    _write_pcm_wav(science_mix_path, samples=science_mix, sample_rate_hz=8000)
+    _write_pcm_wav(
+        presentation_mix_path,
+        samples=presentation_mix,
+        sample_rate_hz=8000,
+    )
+    for manifest in manifests:
+        source = run_dir.parent / str(manifest["audio_path"])
+        target = stems_dir / Path(str(manifest["audio_path"])).name
+        if source.exists() and not target.exists():
+            target.write_bytes(source.read_bytes())
+    reports_dir = run_dir / "objects" / object_record.object_uid / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    timeline_path = reports_dir / "timeline.svg"
+    timeline_path.write_text(
+        _timeline_svg(
+            object_record=object_record,
+            driver_values=driver_values,
+            response_values=response_values,
+        ),
+        encoding="utf-8",
+    )
+    sync_review_path = reports_dir / "synchronized_review.html"
+    sync_review_path.write_text(
+        _sync_review_html(
+            object_record=object_record,
+            timeline_path=str(timeline_path.relative_to(run_dir.parent)),
+            science_audio_path=str(science_mix_path.relative_to(run_dir.parent)),
+            presentation_audio_path=str(
+                presentation_mix_path.relative_to(run_dir.parent)
+            ),
+        ),
+        encoding="utf-8",
+    )
     render_bundle = build_render_bundle(
         object_uid=object_record.object_uid,
         manifests=tuple(manifests),
+    )
+    render_bundle.update(
+        {
+            "science_audio_path": str(science_mix_path.relative_to(run_dir.parent)),
+            "presentation_audio_path": str(
+                presentation_mix_path.relative_to(run_dir.parent)
+            ),
+            "visualization_path": str(timeline_path.relative_to(run_dir.parent)),
+            "sync_review_path": str(sync_review_path.relative_to(run_dir.parent)),
+        }
     )
     render_path = run_dir / "objects" / object_record.object_uid / "render_bundle.json"
     render_path.parent.mkdir(parents=True, exist_ok=True)

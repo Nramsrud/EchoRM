@@ -2,22 +2,34 @@
 
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import math
+import tarfile
+import urllib.parse
 import urllib.request
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ..eval.qc import assess_series_quality
-from ..schemas import OBJECT_MANIFEST_SCHEMA, PHOTOMETRY_SCHEMA
+from ..schemas import OBJECT_MANIFEST_SCHEMA, PHOTOMETRY_SCHEMA, SPECTRAL_EPOCH_SCHEMA
 from .benchmark_corpus import BenchmarkObject, DiscoveryHoldoutRecord
 
 try:
     from astroquery.vizier import Vizier  # type: ignore[import-untyped]
 except ImportError:
     Vizier = None
+
+try:
+    from astropy.io import fits  # type: ignore[import-untyped]
+    from astropy.time import Time  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover
+    Time = None
+    fits = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +65,17 @@ def _download_binary(repo_root: Path, *, relpath: str, url: str) -> Path:
         with urllib.request.urlopen(url, timeout=30) as response:
             path.write_bytes(response.read())
     return path
+
+
+def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not rows:
+        path.write_text("", encoding="utf-8")
+        return
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def _three_column_rows(text: str) -> tuple[tuple[float, float, float], ...]:
@@ -161,6 +184,290 @@ def _build_object_manifest(
     )
 
 
+def _parse_date_obs(value: str) -> float:
+    if not value:
+        return 0.0
+    text = value.strip()
+    formats = ("%d-%m-%y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d")
+    for date_format in formats:
+        try:
+            stamp = datetime.strptime(text, date_format)
+            if Time is not None:
+                return float(Time(stamp).mjd)
+            return float(stamp.toordinal())
+        except ValueError:
+            continue
+    if Time is not None:
+        try:
+            return float(Time(text).mjd)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def _representative_paths(
+    paths: tuple[Path, ...],
+    *,
+    count: int = 3,
+) -> tuple[Path, ...]:
+    if len(paths) <= count:
+        return paths
+    if count <= 1:
+        return (paths[len(paths) // 2],)
+    indices = {0, len(paths) - 1}
+    for index in range(1, count - 1):
+        position = round((index / (count - 1)) * (len(paths) - 1))
+        indices.add(position)
+    return tuple(paths[index] for index in sorted(indices))
+
+
+def _extract_agn_watch_spectra(
+    repo_root: Path,
+    *,
+    object_uid: str,
+    archive_path: Path,
+) -> tuple[Path, ...]:
+    extract_dir = _raw_root(repo_root) / "agn_watch" / object_uid / "spectra"
+    extract_dir.mkdir(parents=True, exist_ok=True)
+    extracted = tuple(sorted(extract_dir.glob("*.fits")))
+    if extracted:
+        return extracted
+    with tarfile.open(archive_path, "r:gz") as archive:
+        for member in archive.getmembers():
+            if not member.isfile() or not member.name.lower().endswith(".fits"):
+                continue
+            payload = archive.extractfile(member)
+            if payload is None:
+                continue
+            target = extract_dir / Path(member.name).name
+            target.write_bytes(payload.read())
+    return tuple(sorted(extract_dir.glob("*.fits")))
+
+
+def _median(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    midpoint = len(ordered) // 2
+    if len(ordered) % 2:
+        return float(ordered[midpoint])
+    return float((ordered[midpoint - 1] + ordered[midpoint]) / 2.0)
+
+
+def _agn_watch_spectral_records(
+    repo_root: Path,
+    *,
+    object_uid: str,
+    redshift: float,
+    archive_path: Path,
+    source_label: str,
+) -> tuple[dict[str, object], ...]:
+    if fits is None:
+        return ()
+    extracted = _extract_agn_watch_spectra(
+        repo_root,
+        object_uid=object_uid,
+        archive_path=archive_path,
+    )
+    records: list[dict[str, object]] = []
+    for spectrum_path in _representative_paths(extracted):
+        with fits.open(spectrum_path) as hdul:
+            header = hdul[0].header
+            flux_values = hdul[0].data
+            if flux_values is None:
+                continue
+            flux = [float(value) for value in flux_values.tolist()]
+            crval1 = float(header.get("CRVAL1", 0.0))
+            cdelt1 = float(header.get("CDELT1", 1.0))
+            crpix1 = float(header.get("CRPIX1", 1.0))
+            wavelength_obs = tuple(
+                crval1 + ((index + 1) - crpix1) * cdelt1 for index in range(len(flux))
+            )
+            mjd_obs = _parse_date_obs(str(header.get("DATE-OBS", "")))
+            snr = _median([abs(value) for value in flux]) / max(
+                _median([abs(b - a) for a, b in zip(flux, flux[1:], strict=False)]),
+                1e-6,
+            )
+            record = {
+                "object_uid": object_uid,
+                "epoch_uid": spectrum_path.stem,
+                "survey": "agn_watch",
+                "mjd_obs": mjd_obs,
+                "mjd_rest": mjd_obs / (1.0 + redshift) if mjd_obs else 0.0,
+                "z": redshift,
+                "spec_path": str(spectrum_path),
+                "wave_min": float(min(wavelength_obs)),
+                "wave_max": float(max(wavelength_obs)),
+                "median_snr": round(snr, 3),
+                "calibration_state": "archive_pipeline",
+                "quality_flag": source_label,
+            }
+            records.append(SPECTRAL_EPOCH_SCHEMA.ordered_record(record))
+    return tuple(sorted(records, key=lambda item: float(str(item["mjd_obs"]))))
+
+
+def _download_sdss_spectrum(
+    repo_root: Path,
+    *,
+    object_uid: str,
+    plate: int,
+    mjd: int,
+    fiber: int,
+    run2d: str,
+) -> Path:
+    filename = f"spec-{plate:04d}-{mjd}-{fiber:04d}.fits"
+    url = (
+        "https://dr17.sdss.org/sas/dr17/sdss/spectro/redux/"
+        f"{run2d}/spectra/lite/{plate:04d}/{filename}"
+    )
+    return _download_binary(
+        repo_root,
+        relpath=f"sdss_rm/{object_uid}/spectra/{filename}",
+        url=url,
+    )
+
+
+def _sdss_spectral_record(
+    *,
+    object_uid: str,
+    redshift: float,
+    spectrum_path: Path,
+    source_label: str,
+) -> dict[str, object]:
+    if fits is None:
+        raise RuntimeError("astropy is required for SDSS spectral parsing")
+    with fits.open(spectrum_path) as hdul:
+        coadd = hdul[1].data
+        if coadd is None:
+            raise ValueError(f"{spectrum_path} missing COADD extension")
+        loglam = [float(value) for value in coadd["loglam"].tolist()]
+        flux = [float(value) for value in coadd["flux"].tolist()]
+        ivar = [float(value) for value in coadd["ivar"].tolist()]
+        spall = hdul[2].data
+        if spall is None or len(spall) == 0:
+            raise ValueError(f"{spectrum_path} missing SPALL metadata")
+        metadata_row = spall[0]
+        mjd_obs = float(metadata_row["MJD"])
+        wavelength_obs = tuple(10**value for value in loglam)
+        snr = _median(
+            [
+                abs(value) * math.sqrt(max(weight, 0.0))
+                for value, weight in zip(flux, ivar, strict=False)
+            ]
+        )
+        record = {
+            "object_uid": object_uid,
+            "epoch_uid": spectrum_path.stem,
+            "survey": "sdss_rm",
+            "mjd_obs": mjd_obs,
+            "mjd_rest": mjd_obs / (1.0 + redshift),
+            "z": redshift,
+            "spec_path": str(spectrum_path),
+            "wave_min": float(min(wavelength_obs)),
+            "wave_max": float(max(wavelength_obs)),
+            "median_snr": round(snr, 3),
+            "calibration_state": "sdss_pipeline_lite",
+            "quality_flag": source_label,
+        }
+        return SPECTRAL_EPOCH_SCHEMA.ordered_record(record)
+
+
+def _download_ztf_lightcurve(
+    repo_root: Path,
+    *,
+    object_uid: str,
+    ra_deg: float,
+    dec_deg: float,
+    radius_deg: float = 0.001,
+) -> Path:
+    params = urllib.parse.urlencode(
+        {
+            "POS": f"CIRCLE {ra_deg:.6f} {dec_deg:.6f} {radius_deg}",
+            "BANDNAME": "g,r",
+            "FORMAT": "csv",
+            "BAD_CATFLAGS_MASK": "32768",
+        }
+    )
+    url = f"https://irsa.ipac.caltech.edu/cgi-bin/ZTF/nph_light_curves?{params}"
+    path = _raw_root(repo_root) / "ztf" / object_uid / "lightcurve.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        return path
+    last_error: Exception | None = None
+    for timeout in (60, 120, 180):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as response:
+                path.write_bytes(response.read())
+            return path
+        except Exception as error:  # pragma: no cover - network dependent
+            last_error = error
+    if last_error is not None:
+        raise last_error
+    return path
+
+
+def _read_ztf_rows(path: Path) -> list[dict[str, object]]:
+    payload = path.read_text(encoding="utf-8", errors="ignore")
+    rows: list[dict[str, object]] = []
+    for row in csv.DictReader(io.StringIO(payload)):
+        if not row:
+            continue
+        try:
+            catflags = int(row.get("catflags", "0") or "0")
+        except ValueError:
+            catflags = 0
+        if catflags != 0:
+            continue
+        mjd = row.get("mjd", "")
+        mag = row.get("mag", "")
+        magerr = row.get("magerr", "")
+        filtercode = row.get("filtercode", "")
+        if mjd in {"", "null"} or mag in {"", "null"} or magerr in {"", "null"}:
+            continue
+        rows.append(
+            {
+                "mjd": float(mjd),
+                "mag": float(mag),
+                "magerr": max(float(magerr), 1e-3),
+                "filtercode": str(filtercode),
+                "oid": str(row.get("oid", "")),
+                "expid": str(row.get("expid", "")),
+            }
+        )
+    return rows
+
+
+def _weighted_mean(rows: list[dict[str, object]]) -> float:
+    if not rows:
+        return 0.0
+    weights = [1.0 / (float(str(row["magerr"])) ** 2) for row in rows]
+    values = [float(str(row["mag"])) for row in rows]
+    weighted_total = sum(
+        value * weight for value, weight in zip(values, weights, strict=False)
+    )
+    return weighted_total / max(sum(weights), 1e-6)
+
+
+def _activity_centroid(rows: list[dict[str, object]]) -> float:
+    if not rows:
+        return 0.0
+    baseline = _weighted_mean(rows)
+    weights = [max(0.0, baseline - float(str(row["mag"]))) + 1e-3 for row in rows]
+    weighted_mjd = sum(
+        float(str(row["mjd"])) * weight
+        for row, weight in zip(rows, weights, strict=False)
+    )
+    return weighted_mjd / max(sum(weights), 1e-6)
+
+
+def _band_lag_proxy(rows: list[dict[str, object]]) -> float:
+    g_rows = [row for row in rows if str(row["filtercode"]).endswith("g")]
+    r_rows = [row for row in rows if str(row["filtercode"]).endswith("r")]
+    if not g_rows or not r_rows:
+        return 0.0
+    return round(_activity_centroid(r_rows) - _activity_centroid(g_rows), 3)
+
+
 def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObject, ...]:
     """Load the real AGN Watch gold benchmark pair used in root closeout."""
     specs = (
@@ -205,7 +512,7 @@ def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObjec
             relpath=f"agn_watch/{spec['object_uid']}/response.txt",
             url=str(spec["response_url"]),
         )
-        _download_binary(
+        spectra_archive = _download_binary(
             repo_root,
             relpath=f"agn_watch/{spec['object_uid']}/spectra.tar.gz",
             url=str(spec["spectra_url"]),
@@ -241,10 +548,16 @@ def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObjec
             line_coverage="Hbeta",
             tier="gold",
             literature_refs=(
-                "International AGN Watch archive; "
-                "Peterson et al. gold benchmark"
+                "International AGN Watch archive; Peterson et al. gold benchmark"
             ),
-            notes="real public archive download",
+            notes="real public archive download with raw spectra archive",
+        )
+        spectral_epoch_records = _agn_watch_spectral_records(
+            repo_root,
+            object_uid=str(spec["object_uid"]),
+            redshift=_as_float(spec["redshift"]),
+            archive_path=spectra_archive,
+            source_label=str(spec["spectra_url"]),
         )
         objects.append(
             BenchmarkObject(
@@ -254,13 +567,14 @@ def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObjec
                 evidence_level="real_public_timeseries",
                 object_manifest=object_manifest,
                 photometry_records=photometry_records,
-                spectral_epoch_records=(),
+                spectral_epoch_records=spectral_epoch_records,
                 literature_lag_day=_as_float(spec["literature_lag_day"]),
                 line_name=str(spec["line_name"]),
                 benchmark_regime=str(spec["benchmark_regime"]),
                 notes=(
                     "Real AGN Watch continuum and line light curves.",
-                    "Raw spectra archive cached under artifacts/raw/agn_watch.",
+                    "Raw spectra archive and extracted FITS epochs are cached "
+                    "under artifacts/raw/agn_watch.",
                 ),
                 response_records=response_records,
             )
@@ -274,14 +588,50 @@ def _require_vizier() -> Any:
     return Vizier
 
 
+def _cached_vizier_rows(
+    repo_root: Path,
+    *,
+    cache_name: str,
+    catalog_id: str,
+    table_name: str,
+    field_names: tuple[str, ...],
+) -> list[dict[str, str]]:
+    cache_path = _raw_root(repo_root) / "vizier" / f"{cache_name}.csv"
+    if cache_path.exists():
+        with cache_path.open(encoding="utf-8", newline="") as handle:
+            return [dict(row) for row in csv.DictReader(handle)]
+    vizier_cls = _require_vizier()
+    vizier_cls.ROW_LIMIT = -1
+    tables = vizier_cls.get_catalogs(catalog_id)
+    table = tables[table_name]
+    rows = [
+        {field_name: str(row[field_name]) for field_name in field_names}
+        for row in table
+    ]
+    _write_csv(
+        cache_path,
+        [
+            {
+                field_name: row.get(field_name, "")
+                for field_name in field_names
+            }
+            for row in rows
+        ],
+    )
+    return rows
+
+
 def load_literal_silver_benchmark_objects(
     repo_root: Path,
 ) -> tuple[BenchmarkObject, ...]:
     """Load the real SDSS-RM silver objects with direct continuum and line series."""
-    vizier_cls = _require_vizier()
-    vizier_cls.ROW_LIMIT = -1
-    tables = vizier_cls.get_catalogs("J/ApJ/818/30")
-    lightcurve_table = tables["J/ApJ/818/30/table2"]
+    lightcurve_rows = _cached_vizier_rows(
+        repo_root,
+        cache_name="sdss_rm_published_lightcurves",
+        catalog_id="J/ApJ/818/30",
+        table_name="J/ApJ/818/30/table2",
+        field_names=("RMID", "MJD", "Fcont", "e_Fcont", "Fline", "e_Fline"),
+    )
 
     metadata = {
         101: {
@@ -293,6 +643,10 @@ def load_literal_silver_benchmark_objects(
             "line_name": "Hbeta",
             "benchmark_regime": "dense_hbeta",
             "literature_lag_day": 2.3,
+            "plate": 6931,
+            "mjd": 56388,
+            "fiber": 734,
+            "run2d": "v5_13_2",
         },
         215: {
             "canonical_name": "SDSS RM 215",
@@ -303,6 +657,10 @@ def load_literal_silver_benchmark_objects(
             "line_name": "Hbeta",
             "benchmark_regime": "moderate_hbeta",
             "literature_lag_day": 3.1,
+            "plate": 7027,
+            "mjd": 56448,
+            "fiber": 992,
+            "run2d": "v5_13_2",
         },
         321: {
             "canonical_name": "SDSS RM 321",
@@ -313,6 +671,10 @@ def load_literal_silver_benchmark_objects(
             "line_name": "MgII",
             "benchmark_regime": "mgii_alias_risk",
             "literature_lag_day": 4.7,
+            "plate": 5017,
+            "mjd": 55715,
+            "fiber": 240,
+            "run2d": "v5_13_2",
         },
         442: {
             "canonical_name": "SDSS RM 442",
@@ -323,13 +685,17 @@ def load_literal_silver_benchmark_objects(
             "line_name": "Hbeta",
             "benchmark_regime": "mixed_line_cadence",
             "literature_lag_day": 2.8,
+            "plate": 6932,
+            "mjd": 56397,
+            "fiber": 806,
+            "run2d": "v5_13_2",
         },
     }
 
-    grouped: dict[int, list[tuple[float, float, float, float, float]]] = (
-        defaultdict(list)
+    grouped: dict[int, list[tuple[float, float, float, float, float]]] = defaultdict(
+        list
     )
-    for row in lightcurve_table:
+    for row in lightcurve_rows:
         rmid = _as_int(row["RMID"])
         if rmid not in metadata:
             continue
@@ -358,6 +724,40 @@ def load_literal_silver_benchmark_objects(
         )
         response_rows = tuple(
             (mjd, line, line_err) for mjd, _, _, line, line_err in rows
+        )
+        raw_table_rows: list[dict[str, object]] = [
+            {
+                "rmid": rmid,
+                "mjd": mjd,
+                "continuum_flux": cont,
+                "continuum_flux_err": cont_err,
+                "line_flux": line,
+                "line_flux_err": line_err,
+            }
+            for mjd, cont, cont_err, line, line_err in rows
+        ]
+        _write_csv(
+            _raw_root(repo_root)
+            / "sdss_rm"
+            / f"sdssrm-{rmid}"
+            / "published_lightcurve.csv",
+            raw_table_rows,
+        )
+        spectrum_path = _download_sdss_spectrum(
+            repo_root,
+            object_uid=f"sdssrm-{rmid}",
+            plate=_as_int(meta["plate"]),
+            mjd=_as_int(meta["mjd"]),
+            fiber=_as_int(meta["fiber"]),
+            run2d=str(meta["run2d"]),
+        )
+        spectral_epoch_records = (
+            _sdss_spectral_record(
+                object_uid=f"sdssrm-{rmid}",
+                redshift=_as_float(meta["redshift"]),
+                spectrum_path=spectrum_path,
+                source_label="SDSS DR17 SAS lite spectra",
+            ),
         )
         photometry_records = _build_photometry_rows(
             object_uid=f"sdssrm-{rmid}",
@@ -388,7 +788,10 @@ def load_literal_silver_benchmark_objects(
             line_coverage=str(meta["line_name"]),
             tier="silver",
             literature_refs="Shen et al. 2016 SDSS-RM published light curves",
-            notes="real published continuum and line time series",
+            notes=(
+                "real published continuum and line time series with cached raw "
+                "tables and DR17 spectra"
+            ),
         )
         objects.append(
             BenchmarkObject(
@@ -398,14 +801,14 @@ def load_literal_silver_benchmark_objects(
                 evidence_level="real_public_timeseries",
                 object_manifest=object_manifest,
                 photometry_records=photometry_records,
-                spectral_epoch_records=(),
+                spectral_epoch_records=spectral_epoch_records,
                 literature_lag_day=_as_float(meta["literature_lag_day"]),
                 line_name=str(meta["line_name"]),
                 benchmark_regime=str(meta["benchmark_regime"]),
                 notes=(
                     "Real SDSS-RM published continuum and line light curves.",
-                    "Metadata remains bounded to RMIDs with "
-                    "trusted local cross-identification.",
+                    "Raw published lightcurve tables and DR17 lite spectra are "
+                    "cached under artifacts/raw/sdss_rm.",
                 ),
                 response_records=response_records,
             )
@@ -418,10 +821,25 @@ def load_literal_discovery_holdout_records(
     repo_root: Path,
 ) -> tuple[DiscoveryHoldoutRecord, ...]:
     """Load a real published CLQ hold-out catalog slice for root closeout."""
-    del repo_root
-    vizier_cls = _require_vizier()
-    vizier_cls.ROW_LIMIT = -1
-    table = vizier_cls.get_catalogs("J/ApJ/933/180")["J/ApJ/933/180/table2"]
+    table = _cached_vizier_rows(
+        repo_root,
+        cache_name="clq_holdout_catalog",
+        catalog_id="J/ApJ/933/180",
+        table_name="J/ApJ/933/180/table2",
+        field_names=(
+            "SDSS",
+            "State",
+            "MJD",
+            "zspec",
+            "L5100",
+            "LHb",
+            "LMgII",
+            "_RA",
+            "_DE",
+            "Sel",
+            "Notes",
+        ),
+    )
     grouped: dict[str, list[dict[str, object]]] = defaultdict(list)
     for row in table:
         grouped[str(row["SDSS"])].append(
@@ -446,26 +864,49 @@ def load_literal_discovery_holdout_records(
         rows.sort(key=lambda item: _as_int(item["mjd"]))
         first = rows[0]
         last = rows[-1]
-        continuum_shift = abs(_as_float(last["l5100"]) - _as_float(first["l5100"]))
+        object_uid = sdss_name.lower().replace("j", "clq-")
+        raw_path = _download_ztf_lightcurve(
+            repo_root,
+            object_uid=object_uid,
+            ra_deg=_as_float(first["ra_deg"]),
+            dec_deg=_as_float(first["dec_deg"]),
+        )
+        raw_rows = _read_ztf_rows(raw_path)
+        if not raw_rows:
+            continue
+        split_mjd = (_as_float(first["mjd"]) + _as_float(last["mjd"])) / 2.0
+        pre_rows = [row for row in raw_rows if _as_float(row["mjd"]) <= split_mjd]
+        post_rows = [row for row in raw_rows if _as_float(row["mjd"]) > split_mjd]
+        pre_state_lag = _band_lag_proxy(pre_rows)
+        post_state_lag = _band_lag_proxy(post_rows)
+        pre_mean = _weighted_mean(pre_rows)
+        post_mean = _weighted_mean(post_rows)
+        continuum_shift = abs(post_mean - pre_mean)
         line_shift = abs(_as_float(last["lhb"]) - _as_float(first["lhb"])) + abs(
             _as_float(last["lmgii"]) - _as_float(first["lmgii"])
         )
-        sonification_shift = round((continuum_shift + line_shift) / 2.0, 3)
+        pre_scatter = _median(
+            [abs(float(str(row["mag"])) - pre_mean) for row in pre_rows]
+        )
+        post_scatter = _median(
+            [abs(float(str(row["mag"])) - post_mean) for row in post_rows]
+        )
+        sonification_shift = round(abs(post_scatter - pre_scatter), 3)
         records.append(
             DiscoveryHoldoutRecord(
-                object_uid=sdss_name.lower().replace("j", "clq-"),
+                object_uid=object_uid,
                 canonical_name=sdss_name,
                 release_id="J/ApJ/933/180",
                 crossmatch_key=sdss_name,
                 anomaly_category="changing_look_quasar",
-                evidence_level="real_catalog_state_change",
+                evidence_level="real_raw_photometry_plus_catalog_transition",
                 holdout_policy="holdout_only_no_optimization",
                 benchmark_links=("gold_validation", "silver_validation"),
                 lag_outlier=round(continuum_shift, 3),
                 line_response_outlier=round(line_shift, 3),
                 sonification_outlier=sonification_shift,
-                pre_state_lag=0.0,
-                post_state_lag=0.0,
+                pre_state_lag=pre_state_lag,
+                post_state_lag=post_state_lag,
                 pre_line_flux=round(
                     _as_float(first["lhb"]) + _as_float(first["lmgii"]),
                     3,
@@ -479,10 +920,15 @@ def load_literal_discovery_holdout_records(
                     "dec_deg": _as_float(first["dec_deg"]),
                     "selection": str(first["selection"]),
                     "zspec": _as_float(first["zspec"]),
+                    "raw_lightcurve_path": str(raw_path),
+                    "raw_lightcurve_row_count": len(raw_rows),
+                    "split_mjd": split_mjd,
                 },
                 notes=(
                     f"published state sequence count={len(rows)}",
                     f"notes={first['notes']}",
+                    "raw ZTF lightcurve cached and used for pre/post transition "
+                    "metrics",
                 ),
             )
         )

@@ -13,7 +13,10 @@ def build_render_bundle(
     return {
         "object_uid": object_uid,
         "audio_stems": stems,
+        "science_audio_path": stems[0] if stems else "",
+        "presentation_audio_path": stems[-1] if stems else "",
         "visualization_path": f"reports/{object_uid}/timeline.svg",
+        "sync_review_path": f"reports/{object_uid}/synchronized_review.html",
         "legend": {
             "mapping_families": [
                 str(manifest["mapping_family"]) for manifest in manifests

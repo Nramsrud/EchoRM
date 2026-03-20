@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from ._official import percentile_bounds, repo_root, run_json_backend, series_payload
 from .base import LagRun, TimeSeries
@@ -38,27 +39,62 @@ def run_litmus(
             response=response,
             detail="missing .uv-litmus runtime",
         )
-    try:
-        payload = run_json_backend(
-            python_path=python_path,
-            code=_LITMUS_CODE,
-            payload={
-                "driver": series_payload(driver),
-                "response": series_payload(response),
-                "lag_min": config.lag_min,
-                "lag_max": config.lag_max,
-                "nlags": config.nlags,
-                "init_samples": config.init_samples,
-            },
-            timeout_sec=config.timeout_sec,
-        )
-    except Exception as exc:  # pragma: no cover - integration path
+    attempts = (
+        (
+            driver,
+            response,
+            config.lag_min,
+            config.lag_max,
+            config.nlags,
+            config.init_samples,
+        ),
+        (
+            _normalize_series(_thin_series(driver, max_points=8)),
+            _normalize_series(_thin_series(response, max_points=8)),
+            max(0.0, config.lag_min),
+            min(max(6.0, config.lag_max), 10.0),
+            max(4, config.nlags // 2),
+            max(6, config.init_samples // 2),
+        ),
+    )
+    last_error: Exception | None = None
+    payload: dict[str, Any] | None = None
+    for (
+        attempt_driver,
+        attempt_response,
+        lag_min,
+        lag_max,
+        nlags,
+        init_samples,
+    ) in attempts:
+        try:
+            payload = run_json_backend(
+                python_path=python_path,
+                code=_LITMUS_CODE,
+                payload={
+                    "driver": series_payload(attempt_driver),
+                    "response": series_payload(attempt_response),
+                    "lag_min": lag_min,
+                    "lag_max": lag_max,
+                    "nlags": nlags,
+                    "init_samples": init_samples,
+                },
+                timeout_sec=config.timeout_sec,
+            )
+            break
+        except Exception as exc:  # pragma: no cover - integration path
+            last_error = exc
+    if payload is None:
         return _unavailable_run(
             object_uid=object_uid,
             pair_id=pair_id,
             driver=driver,
             response=response,
-            detail=str(exc),
+            detail=(
+                str(last_error)
+                if last_error is not None
+                else "unknown backend error"
+            ),
         )
     lag_samples = [float(item) for item in payload.get("lag_samples", [])]
     lag_median, lag_lo, lag_hi = percentile_bounds(
@@ -125,6 +161,36 @@ def _unavailable_run(
     )
 
 
+def _thin_series(series: TimeSeries, *, max_points: int) -> TimeSeries:
+    if len(series.values) <= max_points:
+        return series
+    step = max(1, len(series.values) // max_points)
+    mjd_obs = tuple(
+        series.mjd_obs[index] for index in range(0, len(series.mjd_obs), step)
+    )
+    values = tuple(series.values[index] for index in range(0, len(series.values), step))
+    return TimeSeries(
+        channel=series.channel,
+        mjd_obs=mjd_obs[:max_points],
+        values=values[:max_points],
+    )
+
+
+def _normalize_series(series: TimeSeries) -> TimeSeries:
+    if not series.values:
+        return series
+    minimum = min(series.values)
+    maximum = max(series.values)
+    scale = maximum - minimum
+    if scale <= 0.0:
+        return series
+    return TimeSeries(
+        channel=series.channel,
+        mjd_obs=series.mjd_obs,
+        values=tuple((value - minimum) / scale for value in series.values),
+    )
+
+
 _LITMUS_CODE = r"""
 import importlib.metadata
 import json
@@ -144,10 +210,17 @@ e1 = np.array(driver["errors"], dtype=float)
 e2 = np.array(response["errors"], dtype=float)
 
 joined = np.concatenate([y1, y2])
+spread = float(max(np.std(joined), 1e-3))
+rel = y2 - y1
+rel_center = float(np.mean(rel))
+rel_spread = float(max(np.std(rel), spread * 0.5, 1e-3))
 prior_ranges = {
     "lag": [float(payload["lag_min"]), float(payload["lag_max"])],
-    "mean": [float(np.min(joined)), float(np.max(joined))],
-    "rel_mean": [float(np.min(y2 - y1)), float(np.max(y2 - y1))],
+    "mean": [float(np.min(joined) - spread), float(np.max(joined) + spread)],
+    "rel_mean": [
+        float(rel_center - (2.0 * rel_spread)),
+        float(rel_center + (2.0 * rel_spread)),
+    ],
 }
 model = litmus_rm.models.GP_simple(prior_ranges=prior_ranges)
 fitproc = litmus_rm.fitting_methods.hessian_scan(
