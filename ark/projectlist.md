@@ -624,12 +624,12 @@ projects:
   - id: "0046"
     title: "Adversarial Root Authority Gap-Closure Plan"
     summary: "Define the strict remediation plan that addresses the latest adversarial findings and makes literal root-authority satisfaction the only acceptable completion state."
-    status: specified
+    status: planned
     priority: high
     release: "v0.3.0"
     files:
       spec: ark/playbooks/0046-adversarial-root-authority-gap-closure-plan.md
-      plan: null
+      plan: ark/plans/0046-adversarial-root-authority-gap-closure-plan.md
       review: null
     dependencies: ["0038", "0039", "0040", "0041", "0042", "0043", "0044", "0045"]
     tags: [playbook, remediation, adversarial-review, root-authority]
