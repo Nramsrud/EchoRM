@@ -294,6 +294,7 @@ def _build_object_payload(
     run_dir: Path,
     contamination: float = 0.1,
     state_change: bool = False,
+    include_advanced: bool = False,
 ) -> tuple[dict[str, object], dict[str, object]]:
     driver_values = derive_driver_series(object_record)
     lag_steps = max(1, round(object_record.literature_lag_day))
@@ -308,6 +309,7 @@ def _build_object_payload(
         driver_values=driver_values,
         response_values=response_values,
         lag_steps=lag_steps,
+        include_advanced=include_advanced,
     )
     line_diagnostics = build_line_diagnostics(object_record)
     render_artifacts = build_render_artifacts(

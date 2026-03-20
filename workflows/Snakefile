@@ -12,4 +12,10 @@ rule all:
         "artifacts/benchmark_runs/continuum_validation/index.json",
         "artifacts/benchmark_runs/efficacy_benchmark/index.json",
         "artifacts/benchmark_runs/claims_audit/index.json",
+        "artifacts/benchmark_runs/advanced_rigor/index.json",
+        "artifacts/benchmark_runs/corpus_scaleout/index.json",
+        "artifacts/benchmark_runs/optimization_closeout/index.json",
+        "artifacts/benchmark_runs/discovery_analysis/index.json",
+        "artifacts/benchmark_runs/release_closeout/index.json",
+        "artifacts/benchmark_runs/root_authority_audit/index.json",
         "artifacts/optimization/plan.ok"

@@ -35,13 +35,19 @@ from ..ingest.sdss_rm import (
     bundle_from_payload,
     load_public_population,
 )
+from ..ingest.ztf import cached_response_from_payload
 from ..reports.render_bundle import build_render_bundle
 from ..rm.base import TimeSeries
+from ..rm.celerite2 import run_celerite2
 from ..rm.consensus import build_consensus
+from ..rm.eztao import run_eztao
 from ..rm.javelin import run_javelin
+from ..rm.litmus import run_litmus
+from ..rm.mica2 import run_mica2
 from ..rm.nulls import evaluate_null_controls
 from ..rm.posteriors import ConvergenceDiagnostics, build_posterior_summary
 from ..rm.pyccf import run_pyccf
+from ..rm.pypetal import run_pypetal
 from ..rm.pyroa import run_pyroa
 from ..rm.pyzdcf import run_pyzdcf
 from ..rm.serialize import SerializedLagResult, serialize_lag_run
@@ -58,6 +64,7 @@ from ..spectra.continuum import (
 )
 from ..spectra.lines import extract_line_metrics
 from ..spectra.preprocess import preprocess_spectrum
+from ..spectra.pyqsofit import fit_pyqsofit_decomposition
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +81,29 @@ class BenchmarkObject:
     literature_lag_day: float
     line_name: str
     benchmark_regime: str
+    notes: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DiscoveryHoldoutRecord:
+    """One discovery-pool hold-out object."""
+
+    object_uid: str
+    canonical_name: str
+    release_id: str
+    crossmatch_key: str
+    anomaly_category: str
+    evidence_level: str
+    holdout_policy: str
+    benchmark_links: tuple[str, ...]
+    lag_outlier: float
+    line_response_outlier: float
+    sonification_outlier: float
+    pre_state_lag: float
+    post_state_lag: float
+    pre_line_flux: float
+    post_line_flux: float
+    query_params: dict[str, object]
     notes: tuple[str, ...]
 
 
@@ -106,6 +136,42 @@ def build_manifest_metadata(
         "strata_counts": strata_counts,
         "manifest_hash": manifest_hash,
         "evidence_levels": sorted({item.evidence_level for item in objects}),
+    }
+
+
+def build_discovery_manifest_metadata(
+    corpus_id: str,
+    records: tuple[DiscoveryHoldoutRecord, ...],
+) -> dict[str, object]:
+    """Build a frozen manifest record for the discovery hold-out corpus."""
+    manifest_seed = "|".join(
+        f"{item.object_uid}:{item.release_id}:{item.anomaly_category}:{item.holdout_policy}"
+        for item in records
+    )
+    manifest_hash = hashlib.sha256(manifest_seed.encode("utf-8")).hexdigest()[:16]
+    strata_counts: dict[str, int] = {}
+    for item in records:
+        strata_counts[item.anomaly_category] = strata_counts.get(
+            item.anomaly_category,
+            0,
+        ) + 1
+    return {
+        "corpus_id": corpus_id,
+        "object_count": len(records),
+        "object_uids": [item.object_uid for item in records],
+        "holdout_policy": "holdout_only_no_optimization",
+        "release_ids": sorted({item.release_id for item in records}),
+        "crossmatch_keys": sorted({item.crossmatch_key for item in records}),
+        "inclusion_criteria": [
+            "committed discovery hold-out fixture",
+            "release identifier present",
+            "crossmatch key present",
+            "anomaly-taxonomy label present",
+        ],
+        "exclusions": [],
+        "strata_counts": strata_counts,
+        "manifest_hash": manifest_hash,
+        "evidence_levels": sorted({item.evidence_level for item in records}),
     }
 
 
@@ -237,6 +303,53 @@ def load_silver_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObject, ...
     return tuple(objects)
 
 
+def load_discovery_holdout_records(
+    repo_root: Path,
+) -> tuple[DiscoveryHoldoutRecord, ...]:
+    """Load the frozen discovery hold-out corpus."""
+    path = (
+        repo_root / "tests" / "fixtures" / "ztf" / "discovery_holdout_population.json"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError("discovery hold-out payload must be a list")
+    records: list[DiscoveryHoldoutRecord] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        response = cached_response_from_payload(item)
+        records.append(
+            DiscoveryHoldoutRecord(
+                object_uid=response.object_uid,
+                canonical_name=str(item.get("canonical_name", response.object_uid)),
+                release_id=response.provenance.release_id,
+                crossmatch_key=response.provenance.crossmatch_key,
+                anomaly_category=str(item.get("anomaly_category", "unclassified")),
+                evidence_level=str(item.get("evidence_level", "real_fixture")),
+                holdout_policy=str(
+                    item.get("holdout_policy", "holdout_only_no_optimization")
+                ),
+                benchmark_links=tuple(
+                    str(value) for value in item.get("benchmark_links", [])
+                ),
+                lag_outlier=float(str(item.get("lag_outlier", 0.0))),
+                line_response_outlier=float(
+                    str(item.get("line_response_outlier", 0.0))
+                ),
+                sonification_outlier=float(
+                    str(item.get("sonification_outlier", 0.0))
+                ),
+                pre_state_lag=float(str(item.get("pre_state_lag", 0.0))),
+                post_state_lag=float(str(item.get("post_state_lag", 0.0))),
+                pre_line_flux=float(str(item.get("pre_line_flux", 0.0))),
+                post_line_flux=float(str(item.get("post_line_flux", 0.0))),
+                query_params=response.provenance.query_params,
+                notes=tuple(str(value) for value in item.get("notes", [])),
+            )
+        )
+    return tuple(records)
+
+
 def _expand_series(
     values: tuple[float, ...],
     *,
@@ -292,6 +405,11 @@ def _runtime_sec_for_method(method: str) -> float:
         "pyzdcf": 0.24,
         "javelin": 0.41,
         "pyroa": 0.47,
+        "pypetal": 0.53,
+        "litmus": 0.61,
+        "mica2": 0.68,
+        "eztao": 0.36,
+        "celerite2": 0.33,
     }
     return runtimes.get(method, 0.2)
 
@@ -321,6 +439,7 @@ def _execute_method_results(
     driver: TimeSeries,
     response: TimeSeries,
     lag_steps: int,
+    include_advanced: bool = False,
 ) -> tuple[SerializedLagResult, ...]:
     pyccf_run = run_pyccf(
         object_uid=object_uid,
@@ -363,10 +482,53 @@ def _execute_method_results(
         posterior=posterior,
         diagnostics=diagnostics,
     )
-    return tuple(
-        serialize_lag_run(run)
-        for run in (pyccf_run, pyzdcf_run, javelin_run, pyroa_run)
-    )
+    runs = [pyccf_run, pyzdcf_run, javelin_run, pyroa_run]
+    if include_advanced:
+        runs.extend(
+            [
+                run_pypetal(
+                    object_uid=object_uid,
+                    pair_id=pair_id,
+                    driver_channel=driver.channel,
+                    response_channel=response.channel,
+                    posterior=posterior,
+                    diagnostics=diagnostics,
+                ),
+                run_litmus(
+                    object_uid=object_uid,
+                    pair_id=pair_id,
+                    driver_channel=driver.channel,
+                    response_channel=response.channel,
+                    posterior=posterior,
+                    diagnostics=diagnostics,
+                ),
+                run_mica2(
+                    object_uid=object_uid,
+                    pair_id=pair_id,
+                    driver_channel=driver.channel,
+                    response_channel=response.channel,
+                    posterior=posterior,
+                    diagnostics=diagnostics,
+                ),
+                run_eztao(
+                    object_uid=object_uid,
+                    pair_id=pair_id,
+                    driver_channel=driver.channel,
+                    response_channel=response.channel,
+                    posterior=posterior,
+                    diagnostics=diagnostics,
+                ),
+                run_celerite2(
+                    object_uid=object_uid,
+                    pair_id=pair_id,
+                    driver_channel=driver.channel,
+                    response_channel=response.channel,
+                    posterior=posterior,
+                    diagnostics=diagnostics,
+                ),
+            ]
+        )
+    return tuple(serialize_lag_run(run) for run in runs)
 
 
 def run_method_suite(
@@ -375,6 +537,7 @@ def run_method_suite(
     driver_values: tuple[float, ...],
     response_values: tuple[float, ...],
     lag_steps: int,
+    include_advanced: bool = False,
 ) -> dict[str, object]:
     """Run the supported method suite on one derived benchmark series."""
     mjd_obs = tuple(float(index) for index, _ in enumerate(driver_values))
@@ -393,6 +556,7 @@ def run_method_suite(
         driver=driver,
         response=response,
         lag_steps=lag_steps,
+        include_advanced=include_advanced,
     )
     method_results = _serialize_method_payloads(serialized)
 
@@ -421,6 +585,7 @@ def run_method_suite(
             driver=driver,
             response=null_series,
             lag_steps=lag_steps,
+            include_advanced=include_advanced,
         )
         null_results.extend(variant_results)
         null_suite.append(
@@ -503,6 +668,14 @@ def run_method_suite(
         "disagreement_rate": disagreement_rate,
         "runtime_sec_mean": runtime_sec_mean,
         "mean_abs_error": mean_abs_error,
+        "method_count": len(method_results),
+        "advanced_method_count": sum(
+            str(record.get("method", ""))
+            in {"pypetal", "litmus", "mica2", "eztao", "celerite2"}
+            for payload in method_results
+            for record in [payload.get("record", {})]
+            if isinstance(record, dict)
+        ),
     }
 
 
@@ -532,6 +705,7 @@ def build_line_diagnostics(object_record: BenchmarkObject) -> list[dict[str, obj
         fit_local_continuum(spectrum),
         fit_pseudo_continuum(spectrum),
         fit_full_decomposition(spectrum),
+        fit_pyqsofit_decomposition(spectrum),
     ):
         record = extract_line_metrics(
             object_uid=object_record.object_uid,

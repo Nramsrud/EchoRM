@@ -442,12 +442,12 @@ projects:
   - id: "0032"
     title: "Advanced Method and Spectral Rigor Completion"
     summary: "Close the remaining real-data inference and spectral-analysis gaps required by the root authority documents, including advanced RM backends and PyQSOFit-backed decomposition."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
-      spec: null
-      plan: null
+      spec: ark/specs/0032-advanced-method-spectral-rigor-completion.md
+      plan: ark/plans/0032-advanced-method-spectral-rigor-completion.md
       review: null
     dependencies: ["0025", "0026", "0027", "0028"]
     tags: [rm, spectra, advanced-methods, real-data]
@@ -455,12 +455,12 @@ projects:
   - id: "0033"
     title: "Corpus Scale-Out and Discovery Hold-Out Freeze"
     summary: "Scale the benchmark and discovery corpora to the full root-scope manifests with explicit hold-out governance, strata, and provenance."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
-      spec: null
-      plan: null
+      spec: ark/specs/0033-corpus-scaleout-discovery-holdout-freeze.md
+      plan: ark/plans/0033-corpus-scaleout-discovery-holdout-freeze.md
       review: null
     dependencies: ["0006", "0007", "0008", "0009", "0025"]
     tags: [data, manifests, hold-out, discovery]
@@ -468,12 +468,12 @@ projects:
   - id: "0034"
     title: "Benchmark-Governed Optimization and Agent Loop Completion"
     summary: "Implement the root-scope optimization layer with Ray Tune, Optuna, Ax, immutable benchmark guards, and auditable experiment outputs."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
-      spec: null
-      plan: null
+      spec: ark/specs/0034-benchmark-governed-optimization-agent-loop-completion.md
+      plan: ark/plans/0034-benchmark-governed-optimization-agent-loop-completion.md
       review: null
     dependencies: ["0018", "0032", "0033"]
     tags: [optimization, autoresearch, experiments, governance]
@@ -481,12 +481,12 @@ projects:
   - id: "0035"
     title: "Discovery Hold-Out and CLAGN Scientific Analysis"
     summary: "Execute the root-scope discovery program on hold-out ZTF and CLAGN corpora with interpretable anomaly ranking, transition timelines, and candidate evidence bundles."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
-      spec: null
-      plan: null
+      spec: ark/specs/0035-discovery-holdout-clagn-scientific-analysis.md
+      plan: ark/plans/0035-discovery-holdout-clagn-scientific-analysis.md
       review: null
     dependencies: ["0019", "0032", "0033", "0034"]
     tags: [discovery, ztf, clagn, anomaly]
@@ -494,12 +494,12 @@ projects:
   - id: "0036"
     title: "Scientific Analyst Workbench and Discovery Review Surface"
     summary: "Extend the read-only review application into the analyst-facing workbench required for benchmark, discovery, and release-phase scientific review."
-    status: conceived
+    status: committed
     priority: medium
     release: "v0.3.0"
     files:
-      spec: null
-      plan: null
+      spec: ark/specs/0036-scientific-analyst-workbench-discovery-review-surface.md
+      plan: ark/plans/0036-scientific-analyst-workbench-discovery-review-surface.md
       review: null
     dependencies: ["0033", "0035"]
     tags: [review, web, discovery, analyst]
@@ -507,12 +507,12 @@ projects:
   - id: "0037"
     title: "Public Release and Publication Closeout"
     summary: "Assemble the externally reviewable methods release, anomaly catalog, audio archive, and publication-facing artifacts required by the root authority plan."
-    status: conceived
+    status: committed
     priority: high
     release: "v1.0.0"
     files:
-      spec: null
-      plan: null
+      spec: ark/specs/0037-public-release-publication-closeout.md
+      plan: ark/plans/0037-public-release-publication-closeout.md
       review: null
     dependencies: ["0020", "0035", "0036"]
     tags: [release, catalog, publication, provenance]

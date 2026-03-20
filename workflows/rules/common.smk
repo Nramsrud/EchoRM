@@ -56,3 +56,52 @@ rule claims_audit_package:
         "artifacts/benchmark_runs/claims_audit/index.json"
     shell:
         "python3 -m echorm.cli.benchmark --repo-root . --artifact-root artifacts/benchmark_runs --run-id claims_audit claims-audit"
+
+rule advanced_rigor_package:
+    output:
+        "artifacts/benchmark_runs/advanced_rigor/index.json"
+    shell:
+        "python3 -m echorm.cli.benchmark --repo-root . --artifact-root artifacts/benchmark_runs --run-id advanced_rigor advanced-rigor"
+
+rule corpus_scaleout_package:
+    output:
+        "artifacts/benchmark_runs/corpus_scaleout/index.json"
+    shell:
+        "python3 -m echorm.cli.benchmark --repo-root . --artifact-root artifacts/benchmark_runs --run-id corpus_scaleout corpus-scaleout"
+
+rule optimization_closeout_package:
+    output:
+        "artifacts/benchmark_runs/optimization_closeout/index.json"
+    shell:
+        "python3 -m echorm.cli.benchmark --repo-root . --artifact-root artifacts/benchmark_runs --run-id optimization_closeout optimization-closeout"
+
+rule discovery_analysis_package:
+    input:
+        "artifacts/benchmark_runs/corpus_scaleout/index.json",
+        "artifacts/benchmark_runs/optimization_closeout/index.json"
+    output:
+        "artifacts/benchmark_runs/discovery_analysis/index.json"
+    shell:
+        "python3 -m echorm.cli.benchmark --repo-root . --artifact-root artifacts/benchmark_runs --run-id discovery_analysis discovery-analysis"
+
+rule release_closeout_package:
+    input:
+        "artifacts/benchmark_runs/discovery_analysis/index.json",
+        "artifacts/benchmark_runs/claims_audit/index.json"
+    output:
+        "artifacts/benchmark_runs/release_closeout/index.json"
+    shell:
+        "python3 -m echorm.cli.benchmark --repo-root . --artifact-root artifacts/benchmark_runs --run-id release_closeout release-closeout"
+
+rule root_authority_audit_package:
+    input:
+        "artifacts/benchmark_runs/claims_audit/index.json",
+        "artifacts/benchmark_runs/advanced_rigor/index.json",
+        "artifacts/benchmark_runs/corpus_scaleout/index.json",
+        "artifacts/benchmark_runs/optimization_closeout/index.json",
+        "artifacts/benchmark_runs/discovery_analysis/index.json",
+        "artifacts/benchmark_runs/release_closeout/index.json"
+    output:
+        "artifacts/benchmark_runs/root_authority_audit/index.json"
+    shell:
+        "python3 -m echorm.cli.benchmark --repo-root . --artifact-root artifacts/benchmark_runs --run-id root_authority_audit root-authority-audit"

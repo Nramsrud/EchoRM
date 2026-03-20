@@ -16,6 +16,14 @@ from ..eval.broad_validation import (
 from ..eval.claims_audit import materialize_claims_audit
 from ..eval.first_benchmark import materialize_first_benchmark_package
 from ..eval.readiness import materialize_benchmark_readiness_run
+from ..eval.root_closeout import (
+    materialize_advanced_rigor_package,
+    materialize_corpus_scaleout_package,
+    materialize_discovery_analysis_package,
+    materialize_optimization_closeout_package,
+    materialize_release_closeout_package,
+    materialize_root_authority_audit,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -78,6 +86,30 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "claims-audit",
         help="Materialize the cross-package broad-validation claims audit.",
+    )
+    subparsers.add_parser(
+        "advanced-rigor",
+        help="Materialize the advanced-method and spectral-rigor package.",
+    )
+    subparsers.add_parser(
+        "corpus-scaleout",
+        help="Materialize the corpus-scaleout and discovery hold-out package.",
+    )
+    subparsers.add_parser(
+        "optimization-closeout",
+        help="Materialize the benchmark-governed optimization package.",
+    )
+    subparsers.add_parser(
+        "discovery-analysis",
+        help="Materialize the hold-out discovery and CLAGN analysis package.",
+    )
+    subparsers.add_parser(
+        "release-closeout",
+        help="Materialize the integrated release closeout package.",
+    )
+    subparsers.add_parser(
+        "root-authority-audit",
+        help="Materialize the full root-authority closeout audit.",
     )
     return parser
 
@@ -168,6 +200,57 @@ def main(argv: Sequence[str] | None = None) -> int:
             artifact_root=artifact_root,
             run_id=args.run_id,
             profile=broad_validation_profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "advanced-rigor":
+        index_path = materialize_advanced_rigor_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile="root_closeout" if args.profile == "baseline" else args.profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "corpus-scaleout":
+        index_path = materialize_corpus_scaleout_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile="root_closeout" if args.profile == "baseline" else args.profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "optimization-closeout":
+        index_path = materialize_optimization_closeout_package(
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile="root_closeout" if args.profile == "baseline" else args.profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "discovery-analysis":
+        index_path = materialize_discovery_analysis_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile="root_closeout" if args.profile == "baseline" else args.profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "release-closeout":
+        index_path = materialize_release_closeout_package(
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile="root_closeout" if args.profile == "baseline" else args.profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "root-authority-audit":
+        index_path = materialize_root_authority_audit(
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile="root_closeout" if args.profile == "baseline" else args.profile,
         )
         print(index_path)
         return 0
