@@ -49,6 +49,7 @@ from .literal_corpora import (
     load_literal_discovery_holdout_records,
     load_literal_gold_benchmark_objects,
     load_literal_silver_benchmark_objects,
+    load_literal_silver_full_catalog_manifest,
 )
 from .objectives import ObjectiveScorecard, compute_objective_scorecard
 from .readiness import (
@@ -91,11 +92,11 @@ def _hash_mapping(payload: Mapping[str, object]) -> str:
     ).hexdigest()[:16]
 
 
-def _best_overall_score(item: Mapping[str, object]) -> float:
+def _representative_utility(item: Mapping[str, object]) -> float:
     scorecard_object = item.get("best_scorecard", {})
     if not isinstance(scorecard_object, dict):
         return 0.0
-    return float(str(scorecard_object.get("overall", 0.0)))
+    return float(str(scorecard_object.get("representative_utility", 0.0)))
 
 
 def _load_required_run(artifact_root: Path, run_id: str) -> Mapping[str, object]:
@@ -534,6 +535,7 @@ def materialize_corpus_scaleout_package(
     run_dir.mkdir(parents=True, exist_ok=True)
     gold_objects = load_literal_gold_benchmark_objects(repo_root)
     silver_objects = load_literal_silver_benchmark_objects(repo_root)
+    silver_catalog_manifest = load_literal_silver_full_catalog_manifest(repo_root)
     discovery_records = load_literal_discovery_holdout_records(repo_root)
     gold_manifest = build_manifest_metadata("gold_full_scope", gold_objects)
     silver_manifest = build_manifest_metadata("silver_full_scope", silver_objects)
@@ -564,19 +566,26 @@ def materialize_corpus_scaleout_package(
             "object_count": manifest["object_count"],
             "manifest_hash": manifest["manifest_hash"],
         }
-        for manifest in (gold_manifest, silver_manifest, discovery_manifest)
+        for manifest in (
+            gold_manifest,
+            silver_manifest,
+            silver_catalog_manifest,
+            discovery_manifest,
+        )
     ]
     payload = _package_header(
         run_id=run_id,
         profile=profile,
         package_type="corpus_scaleout",
         benchmark_scope=(
-            "Full-scope gold, silver, and discovery-hold-out manifest package with "
-            "explicit provenance and hold-out governance."
+            "Tracked gold benchmark freeze, current silver benchmark freeze, and "
+            "published CLQ discovery hold-out freeze with explicit provenance and "
+            "hold-out governance."
         ),
         readiness=(
             "ready"
-            if int(str(discovery_manifest["object_count"])) >= 5
+            if int(str(silver_catalog_manifest["object_count"])) >= 800
+            and int(str(discovery_manifest["object_count"])) >= 5
             and str(discovery_manifest["holdout_policy"])
             else "degraded"
         ),
@@ -585,8 +594,9 @@ def materialize_corpus_scaleout_package(
         summary={
             "gold_object_count": gold_manifest["object_count"],
             "silver_object_count": silver_manifest["object_count"],
+            "silver_catalog_object_count": silver_catalog_manifest["object_count"],
             "discovery_object_count": discovery_manifest["object_count"],
-            "manifest_count": 3,
+            "manifest_count": 4,
             "release_count": len(
                 discovery_manifest["release_ids"]
                 if isinstance(discovery_manifest["release_ids"], list)
@@ -596,6 +606,8 @@ def materialize_corpus_scaleout_package(
         },
         demonstrated=(
             "Gold, silver, and discovery corpora are frozen as tracked manifests.",
+            "The full public SDSS-RM catalog scope is frozen alongside the smaller "
+            "silver validation subset.",
             "Discovery hold-out governance is explicit in the tracked corpus "
             "artifacts.",
         ),
@@ -613,12 +625,14 @@ def materialize_corpus_scaleout_package(
     payload["comparisons"] = comparisons
     payload["gold_manifest"] = gold_manifest
     payload["silver_manifest"] = silver_manifest
+    payload["silver_catalog_manifest"] = silver_catalog_manifest
     payload["discovery_manifest"] = discovery_manifest
     _write_json(run_dir / "index.json", payload)
     _write_markdown(run_dir / "summary.md", _package_dossier(payload))
     _write_markdown(run_dir / "dossier.md", _package_dossier(payload))
     _write_json(run_dir / "gold_manifest.json", gold_manifest)
     _write_json(run_dir / "silver_manifest.json", silver_manifest)
+    _write_json(run_dir / "silver_catalog_manifest.json", silver_catalog_manifest)
     _write_json(run_dir / "discovery_manifest.json", discovery_manifest)
     _update_root_index(
         artifact_root=artifact_root,
@@ -707,6 +721,40 @@ def materialize_optimization_closeout_package(
     profile: str = "root_closeout",
 ) -> Path:
     """Materialize the optimization and agent-loop closeout package."""
+    discovery_payload_path = artifact_root / "discovery_analysis" / "index.json"
+
+    def _discovery_anomaly_metrics() -> tuple[float, float, int]:
+        if not discovery_payload_path.exists():
+            return 0.0, 0.0, 0
+        discovery_payload = _load_required_run(artifact_root, "discovery_analysis")
+        candidates = _dict_list(discovery_payload, "candidates")
+        if not candidates:
+            return 0.0, 0.0, 0
+        ordered = sorted(
+            candidates,
+            key=lambda item: float(str(item.get("rank_score", 0.0))),
+            reverse=True,
+        )
+        top_k = ordered[:3]
+        precision_at_3 = round(
+            sum(
+                str(item.get("review_priority", "")) == "high"
+                or str(item.get("anomaly_category", "")) == "clagn_transition"
+                for item in top_k
+            )
+            / max(len(top_k), 1),
+            3,
+        )
+        auc_proxy = round(
+            sum(
+                min(float(str(item.get("rank_score", 0.0))) / 10.0, 1.0)
+                for item in ordered
+            )
+            / max(len(ordered), 1),
+            3,
+        )
+        return precision_at_3, auc_proxy, len(ordered)
+
     validation_results = _validation_results_from_benchmark_artifacts(artifact_root)
     efficacy_payload = _load_required_run(artifact_root, "efficacy_benchmark")
     efficacy_summary = _mapping_value(efficacy_payload, "summary")
@@ -716,22 +764,8 @@ def materialize_optimization_closeout_package(
     )
     continuum_payload = _load_required_run(artifact_root, "continuum_validation")
     continuum_summary = _mapping_value(continuum_payload, "summary")
-    anomaly_cases = [
-        case
-        for case in _dict_list(continuum_payload, "cases")
-        if str(case.get("family", ""))
-        in {"failure_case", "contaminated_case", "state_change"}
-    ]
-    anomaly_scores = [
-        float(str(case.get("summary_metric", 0.0))) for case in anomaly_cases
-    ]
-    anomaly_precision_at_3 = round(
-        sum(score >= 0.6 for score in sorted(anomaly_scores, reverse=True)[:3]) / 3.0,
-        3,
-    )
-    anomaly_auc_proxy = round(
-        sum(anomaly_scores) / max(len(anomaly_scores), 1),
-        3,
+    anomaly_precision_at_3, anomaly_auc_proxy, anomaly_candidate_count = (
+        _discovery_anomaly_metrics()
     )
     scorecard = compute_objective_scorecard(
         validation_results,
@@ -740,6 +774,12 @@ def materialize_optimization_closeout_package(
         plot_audio_accuracy=_float_value(efficacy_summary, "plot_audio_accuracy"),
         runtime_sec_mean=_float_value(silver_summary, "runtime_sec_mean"),
         reproducibility_rate=1.0,
+        anomaly_precision_at_k=anomaly_precision_at_3,
+        anomaly_auc=anomaly_auc_proxy,
+        interpretability_penalty=max(
+            0.0,
+            1.0 - _float_value(continuum_summary, "classification_accuracy"),
+        ),
     )
     objective_metrics = {
         "lag_mae": round(
@@ -763,6 +803,7 @@ def materialize_optimization_closeout_package(
         ),
         "anomaly_precision_at_3": anomaly_precision_at_3,
         "anomaly_auc_proxy": anomaly_auc_proxy,
+        "anomaly_candidate_count": anomaly_candidate_count,
         "audio_discriminability": round(
             _float_value(efficacy_summary, "audio_only_accuracy"),
             3,
@@ -859,6 +900,12 @@ def materialize_optimization_closeout_package(
                 + (0.02 if uncertainty_mode == "diffusion" else 0.0)
             ),
             reproducibility_rate=1.0,
+            anomaly_precision_at_k=anomaly_precision_at_3,
+            anomaly_auc=anomaly_auc_proxy,
+            interpretability_penalty=max(
+                0.0,
+                1.0 - _float_value(continuum_summary, "classification_accuracy"),
+            ),
         )
 
     run_dir = artifact_root / run_id
@@ -866,11 +913,65 @@ def materialize_optimization_closeout_package(
     experiment_records: list[JSONDict] = []
     trial_records: dict[str, list[JSONDict]] = {}
 
-    def _experiment_overall(item: Mapping[str, object]) -> float:
+    def _pareto_front_records(trials: list[JSONDict]) -> list[JSONDict]:
+        scorecards = [
+            item.get("scorecard", {})
+            for item in trials
+            if isinstance(item.get("scorecard", {}), dict)
+        ]
+        front: list[JSONDict] = []
+        for trial in trials:
+            scorecard_object = trial.get("scorecard", {})
+            if not isinstance(scorecard_object, dict):
+                continue
+            current = ObjectiveScorecard(
+                float(str(scorecard_object.get("m1_lag_recovery_mae", 0.0))),
+                float(str(scorecard_object.get("m2_coverage_calibration", 0.0))),
+                float(str(scorecard_object.get("m3_null_false_positive_rate", 1.0))),
+                float(str(scorecard_object.get("m4_anomaly_detection_score", 0.0))),
+                float(str(scorecard_object.get("m5_audio_discriminability", 0.0))),
+                float(str(scorecard_object.get("m6_runtime_efficiency", 0.0))),
+                float(str(scorecard_object.get("m7_interpretability_score", 0.0))),
+            )
+            dominated = False
+            for other_object in scorecards:
+                if (
+                    other_object is scorecard_object
+                    or not isinstance(other_object, dict)
+                ):
+                    continue
+                other = ObjectiveScorecard(
+                    float(str(other_object.get("m1_lag_recovery_mae", 0.0))),
+                    float(str(other_object.get("m2_coverage_calibration", 0.0))),
+                    float(str(other_object.get("m3_null_false_positive_rate", 1.0))),
+                    float(str(other_object.get("m4_anomaly_detection_score", 0.0))),
+                    float(str(other_object.get("m5_audio_discriminability", 0.0))),
+                    float(str(other_object.get("m6_runtime_efficiency", 0.0))),
+                    float(str(other_object.get("m7_interpretability_score", 0.0))),
+                )
+                if other.dominates(current):
+                    dominated = True
+                    break
+            if not dominated:
+                front.append(trial)
+        front.sort(
+            key=lambda item: float(
+                str(
+                    _mapping_value(item, "scorecard").get(
+                        "representative_utility",
+                        0.0,
+                    )
+                )
+            ),
+            reverse=True,
+        )
+        return front
+
+    def _experiment_utility(item: Mapping[str, object]) -> float:
         scorecard_object = item.get("best_scorecard", {})
         if not isinstance(scorecard_object, dict):
             return 0.0
-        return float(str(scorecard_object.get("overall", 0.0)))
+        return float(str(scorecard_object.get("representative_utility", 0.0)))
 
     def _record_experiment(
         backend_name: str,
@@ -880,6 +981,7 @@ def materialize_optimization_closeout_package(
         best_params: dict[str, object],
         best_scorecard: ObjectiveScorecard,
         trials: list[JSONDict],
+        pareto_front: list[JSONDict],
     ) -> None:
         experiment_payload = {
             "experiment_id": backend_name,
@@ -887,8 +989,10 @@ def materialize_optimization_closeout_package(
             "backend_mode": backend_mode,
             "execution_evidence": execution_evidence,
             "trial_count": len(trials),
+            "pareto_front_size": len(pareto_front),
             "best_params": best_params,
             "best_scorecard": best_scorecard.to_dict(),
+            "pareto_front": pareto_front,
             "artifact_paths": _artifact_paths(run_id, "experiments", backend_name),
         }
         experiment_records.append(experiment_payload)
@@ -905,7 +1009,7 @@ def materialize_optimization_closeout_package(
         )
 
     def _unavailable_backend(name: str, detail: str) -> None:
-        zero = ObjectiveScorecard(0.0, 0.0, 0.0, 0.0)
+        zero = ObjectiveScorecard(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0)
         _record_experiment(
             name,
             backend_mode="unavailable_external_dep",
@@ -913,12 +1017,25 @@ def materialize_optimization_closeout_package(
             best_params={},
             best_scorecard=zero,
             trials=[{"detail": detail}],
+            pareto_front=[],
         )
 
     if optuna is not None:
-        study = optuna.create_study(direction="maximize")
+        study = optuna.create_study(
+            directions=[
+                "minimize",
+                "maximize",
+                "minimize",
+                "maximize",
+                "maximize",
+                "maximize",
+                "maximize",
+            ]
+        )
 
-        def optuna_objective(trial: Any) -> float:
+        def optuna_objective(
+            trial: Any,
+        ) -> tuple[float, float, float, float, float, float, float]:
             candidate = {
                 "mapping_family": trial.suggest_categorical(
                     "mapping_family",
@@ -934,7 +1051,15 @@ def materialize_optimization_closeout_package(
             }
             scorecard = evaluator(candidate)
             trial.set_user_attr("scorecard", scorecard.to_dict())
-            return scorecard.overall
+            return (
+                scorecard.m1_lag_recovery_mae,
+                scorecard.m2_coverage_calibration,
+                scorecard.m3_null_false_positive_rate,
+                scorecard.m4_anomaly_detection_score,
+                scorecard.m5_audio_discriminability,
+                scorecard.m6_runtime_efficiency,
+                scorecard.m7_interpretability_score,
+            )
 
         study.optimize(optuna_objective, n_trials=12)
         optuna_trials: list[JSONDict] = [
@@ -944,14 +1069,17 @@ def materialize_optimization_closeout_package(
             }
             for trial in study.trials
         ]
-        optuna_best = evaluator(dict(study.best_params))
+        optuna_front = _pareto_front_records(optuna_trials)
+        representative_trial = optuna_front[0] if optuna_front else optuna_trials[0]
+        optuna_best = evaluator(dict(_mapping_value(representative_trial, "params")))
         _record_experiment(
             "optuna",
             backend_mode="official_package_native",
             execution_evidence="official_package_execution",
-            best_params=dict(study.best_params),
+            best_params=dict(_mapping_value(representative_trial, "params")),
             best_scorecard=optuna_best,
             trials=optuna_trials,
+            pareto_front=optuna_front,
         )
     else:
         _unavailable_backend("optuna", "optuna not installed")
@@ -993,7 +1121,15 @@ def materialize_optimization_closeout_package(
                     "value_type": "float",
                 },
             ],
-            objectives={"overall": ObjectiveProperties(minimize=False)},
+            objectives={
+                "m1_lag_recovery_mae": ObjectiveProperties(minimize=True),
+                "m2_coverage_calibration": ObjectiveProperties(minimize=False),
+                "m3_null_false_positive_rate": ObjectiveProperties(minimize=True),
+                "m4_anomaly_detection_score": ObjectiveProperties(minimize=False),
+                "m5_audio_discriminability": ObjectiveProperties(minimize=False),
+                "m6_runtime_efficiency": ObjectiveProperties(minimize=False),
+                "m7_interpretability_score": ObjectiveProperties(minimize=False),
+            },
         )
         ax_trials: list[JSONDict] = []
         for _index in range(12):
@@ -1001,13 +1137,37 @@ def materialize_optimization_closeout_package(
             scorecard = evaluator(dict(parameters))
             ax_client.complete_trial(
                 trial_index=trial_index,
-                raw_data={"overall": (scorecard.overall, 0.0)},
+                raw_data={
+                    "m1_lag_recovery_mae": (scorecard.m1_lag_recovery_mae, 0.0),
+                    "m2_coverage_calibration": (
+                        scorecard.m2_coverage_calibration,
+                        0.0,
+                    ),
+                    "m3_null_false_positive_rate": (
+                        scorecard.m3_null_false_positive_rate,
+                        0.0,
+                    ),
+                    "m4_anomaly_detection_score": (
+                        scorecard.m4_anomaly_detection_score,
+                        0.0,
+                    ),
+                    "m5_audio_discriminability": (
+                        scorecard.m5_audio_discriminability,
+                        0.0,
+                    ),
+                    "m6_runtime_efficiency": (scorecard.m6_runtime_efficiency, 0.0),
+                    "m7_interpretability_score": (
+                        scorecard.m7_interpretability_score,
+                        0.0,
+                    ),
+                },
             )
             ax_trials.append(
                 {"params": dict(parameters), "scorecard": scorecard.to_dict()}
             )
-        best_params_tuple = ax_client.get_best_parameters()
-        ax_best_params = dict(best_params_tuple[0]) if best_params_tuple else {}
+        ax_front = _pareto_front_records(ax_trials)
+        representative_trial = ax_front[0] if ax_front else ax_trials[0]
+        ax_best_params = dict(_mapping_value(representative_trial, "params"))
         best_scorecard = evaluator(ax_best_params)
         _record_experiment(
             "ax",
@@ -1016,6 +1176,7 @@ def materialize_optimization_closeout_package(
             best_params=dict(ax_best_params),
             best_scorecard=best_scorecard,
             trials=ax_trials,
+            pareto_front=ax_front,
         )
     else:
         _unavailable_backend("ax", "ax not installed")
@@ -1036,10 +1197,16 @@ def materialize_optimization_closeout_package(
             scorecard = evaluator(candidate)
             tune.report(
                 {
-                    "overall": scorecard.overall,
-                    "science": scorecard.science,
-                    "sonification": scorecard.sonification,
-                    "engineering": scorecard.engineering,
+                    "m1_lag_recovery_mae": scorecard.m1_lag_recovery_mae,
+                    "m2_coverage_calibration": scorecard.m2_coverage_calibration,
+                    "m3_null_false_positive_rate": (
+                        scorecard.m3_null_false_positive_rate
+                    ),
+                    "m4_anomaly_detection_score": scorecard.m4_anomaly_detection_score,
+                    "m5_audio_discriminability": scorecard.m5_audio_discriminability,
+                    "m6_runtime_efficiency": scorecard.m6_runtime_efficiency,
+                    "m7_interpretability_score": scorecard.m7_interpretability_score,
+                    "representative_utility": scorecard.representative_utility,
                     "candidate_index": candidate_index,
                     "mapping_family": str(candidate["mapping_family"]),
                     "uncertainty_mode": str(candidate["uncertainty_mode"]),
@@ -1057,8 +1224,6 @@ def materialize_optimization_closeout_package(
         )
         result_grid: Any = tuner.fit()
         ray_trials: list[JSONDict] = []
-        ray_best_params: dict[str, object] = {}
-        best_scorecard = ObjectiveScorecard(0.0, 0.0, 0.0, 0.0)
         for result in result_grid:
             metrics = dict(result.metrics)
             config = getattr(result, "config", {})
@@ -1070,9 +1235,10 @@ def materialize_optimization_closeout_package(
             candidate = dict(candidates[index])
             scorecard = evaluator(candidate)
             ray_trials.append({"params": candidate, "scorecard": scorecard.to_dict()})
-            if scorecard.overall >= best_scorecard.overall:
-                ray_best_params = candidate
-                best_scorecard = scorecard
+        ray_front = _pareto_front_records(ray_trials)
+        representative_trial = ray_front[0] if ray_front else ray_trials[0]
+        ray_best_params = dict(_mapping_value(representative_trial, "params"))
+        best_scorecard = evaluator(ray_best_params)
         _record_experiment(
             "ray_tune",
             backend_mode="official_package_native",
@@ -1080,6 +1246,7 @@ def materialize_optimization_closeout_package(
             best_params=ray_best_params,
             best_scorecard=best_scorecard,
             trials=ray_trials,
+            pareto_front=ray_front,
         )
         ray.shutdown()
     else:
@@ -1112,8 +1279,12 @@ def materialize_optimization_closeout_package(
                 int(str(item.get("trial_count", 0))) for item in experiment_records
             ),
             "candidate_space_count": len(candidates),
-            "best_overall_score": max(
-                _best_overall_score(item) for item in experiment_records
+            "max_representative_utility": max(
+                _experiment_utility(item) for item in experiment_records
+            ),
+            "pareto_front_size_max": max(
+                int(str(item.get("pareto_front_size", 0)))
+                for item in experiment_records
             ),
             "validation_result_count": len(validation_results),
             "mutation_surface_count": 4,
@@ -1368,6 +1539,9 @@ def _release_object_rows(
             "mjd_rest": float(str(record["mjd_rest"])),
             "flux": float(str(record["flux"])),
             "flux_err": float(str(record["flux_err"])),
+            "normalization_mode": str(record["normalization_mode"]),
+            "normalization_reference": str(record["normalization_reference"]),
+            "transform_hash": str(record["transform_hash"]),
             "quality_flag": str(record["quality_flag"]),
             "source_release": str(record["source_release"]),
             "raw_row_hash": str(record["raw_row_hash"]),
@@ -1637,7 +1811,8 @@ def materialize_release_closeout_package(
         {
             "backend_name": str(item.get("backend_name", "")),
             "trial_count": int(str(item.get("trial_count", 0))),
-            "best_overall_score": _best_overall_score(item),
+            "representative_utility": _representative_utility(item),
+            "pareto_front_size": int(str(item.get("pareto_front_size", 0))),
             "mapping_family": str(
                 _mapping_value(item, "best_params").get("mapping_family", "")
             ),
@@ -1713,20 +1888,77 @@ def materialize_release_closeout_package(
     publication_index = build_release_index(bundle)
     checklist = (
         "# Reproducibility Checklist\n\n"
-        "- benchmark artifacts included\n"
-        "- discovery catalog included\n"
-        "- provenance records included\n"
-        "- per-object release bundles included\n"
-        "- methods and catalog paper drafts included\n"
+        "- benchmark artifacts included and hashed\n"
+        "- discovery catalog included with ranked candidates\n"
+        "- provenance records included for benchmark, claims, discovery, and "
+        "catalog layers\n"
+        "- per-object release bundles included with photometry, lag, and "
+        "line-metric tables\n"
+        "- methods, catalog, and case-study narratives derived from tracked "
+        "artifacts\n"
     )
+    def _case_study_block(bundle: Mapping[str, object]) -> str:
+        artifact_paths = _mapping_value(bundle, "artifact_paths")
+        return "\n".join(
+            [
+                f"## {bundle['canonical_name']}",
+                f"- Object UID: {bundle['object_uid']}",
+                f"- Memo: {artifact_paths.get('memo', '')}",
+                f"- Photometry table: {artifact_paths.get('photometry_table', '')}",
+                f"- Lag table: {artifact_paths.get('lag_table', '')}",
+                f"- Line metrics: {artifact_paths.get('line_metrics_table', '')}",
+                f"- Audio: {artifact_paths.get('science_audio', '')}",
+            ]
+        )
+    methods_results_lines = [
+        (
+            f"- {row['canonical_name']}: mean_abs_error={row['mean_abs_error']}, "
+            f"quality_flag={row['quality_flag']}, evidence={row['evidence_level']}"
+        )
+        for row in benchmark_leaderboard_rows
+    ]
+    mapping_lines = [
+        (
+            f"- {row['backend_name']}: representative_utility="
+            f"{row['representative_utility']}, pareto_front_size="
+            f"{row['pareto_front_size']}, mapping_family={row['mapping_family']}, "
+            f"uncertainty_mode={row['uncertainty_mode']}"
+        )
+        for row in mapping_leaderboard_rows
+    ]
+    literature_lines = [
+        (
+            f"- {row['object_uid']} / {row['method']}: lag_median={row['lag_median']}, "
+            f"lag_error={row['lag_error']}, quality_score={row['quality_score']}"
+        )
+        for row in literature_rows[:12]
+    ]
     methods_paper = "\n".join(
         [
-            "# Methods Paper Draft",
+            "# Methods Paper",
+            "",
+            "## Scope",
+            "- Reverberation-mapping benchmark, discovery, and release program "
+            "over tracked public corpora.",
+            "- Benchmark claims are bounded by the repository artifact model "
+            "and do not substitute for external peer review.",
             "",
             "## Validation Program",
-            "- Gold benchmark: AGN Watch objects with measured response series.",
-            "- Silver benchmark: SDSS-RM published continuum and line light curves.",
-            "- Continuum benchmark: real-data-inspired and synthetic hierarchy cases.",
+            "- Gold benchmark: AGN Watch objects with real continuum and "
+            "line-response measurements.",
+            "- Silver benchmark: SDSS-RM published continuum and line light "
+            "curves with literature lag comparisons.",
+            "- Continuum benchmark: bounded real-data continuum cases plus "
+            "hierarchy reference case.",
+            "",
+            "## Benchmark Results",
+            *methods_results_lines,
+            "",
+            "## Optimization and Mapping",
+            *mapping_lines,
+            "",
+            "## Literature Comparison Sample",
+            *(literature_lines or ["- no literature rows available"]),
             "",
             "## RM Backends",
             "- PyCCF",
@@ -1739,26 +1971,55 @@ def materialize_release_closeout_package(
             "- EzTao",
             "- celerite2",
             "- PyQSOFit",
+            "",
+            "## Figures",
+            f"- Methods figure: {run_id}/methods_figure.svg",
+            f"- Benchmark leaderboard: {run_id}/benchmark_leaderboard.csv",
+            f"- Literature comparison: {run_id}/literature_comparison.csv",
         ]
     )
+    top_candidates = anomaly_catalog_rows[:10]
     catalog_paper = "\n".join(
         [
-            "# Catalog Paper Draft",
+            "# Catalog Paper",
             "",
+            "## Scope",
             f"- release_version: {catalog['release_version']}",
             f"- entry_count: {catalog['entry_count']}",
-            "- includes anomaly ranking, transition evidence, and review priority",
+            f"- transition_catalog_count: {len(clagn_transition_rows)}",
+            "",
+            "## Ranked Candidates",
+            *[
+                (
+                    f"- {row['canonical_name']} ({row['object_uid']}): "
+                    f"category={row['anomaly_category']}, "
+                    f"rank_score={row['rank_score']}, "
+                    f"review_priority={row['review_priority']}"
+                )
+                for row in top_candidates
+            ],
+            "",
+            "## Transition Catalog",
+            *[
+                (
+                    f"- {row['canonical_name']} ({row['object_uid']}): "
+                    f"lag_state_change={row['lag_state_change']}, "
+                    f"line_response_ratio={row['line_response_ratio']}"
+                )
+                for row in clagn_transition_rows[:10]
+            ],
+            "",
+            "## Tables and Figures",
+            f"- Anomaly catalog: {run_id}/anomaly_catalog.csv",
+            f"- CLAGN transition catalog: {run_id}/clagn_transition_catalog.csv",
+            f"- Catalog figure: {run_id}/catalog_figure.svg",
         ]
     )
     case_studies = "\n".join(
         [
             "# Object Case Studies",
             "",
-            *[
-                f"- {bundle['canonical_name']}: "
-                f"{_mapping_value(bundle, 'artifact_paths').get('memo', '')}"
-                for bundle in object_bundles
-            ],
+            *[_case_study_block(bundle) for bundle in object_bundles],
         ]
     )
     audio_supplement = "\n".join(
@@ -1772,10 +2033,20 @@ def materialize_release_closeout_package(
         [
             "# Open-Source Release",
             "",
+            "## Components",
             "- code package: src/echorm",
             "- workflow package: workflows/Snakefile",
             "- benchmark artifacts: artifacts/benchmark_runs",
             "- review application: src/echorm/reports/review_app.py",
+            "",
+            "## Public Interfaces",
+            "- benchmark CLI: src/echorm/cli/benchmark.py",
+            "- review application CLI: src/echorm/cli/review_app.py",
+            "",
+            "## Release Artifacts",
+            f"- publication index: {run_id}/publication_index.md",
+            f"- benchmark audio archive: {run_id}/benchmark_audio_archive.zip",
+            f"- reviewable object bundles: {run_id}/objects/",
         ]
     )
     methods_figure_path = run_dir / "methods_figure.svg"
@@ -2036,6 +2307,10 @@ def materialize_root_authority_audit(
     corpus_evidence = (
         _mapping_value(corpus_payload, "gold_manifest").get("evidence_levels", []),
         _mapping_value(corpus_payload, "silver_manifest").get("evidence_levels", []),
+        _mapping_value(corpus_payload, "silver_catalog_manifest").get(
+            "evidence_levels",
+            [],
+        ),
         _mapping_value(corpus_payload, "discovery_manifest").get("evidence_levels", []),
     )
     release_publication_artifacts = {
@@ -2059,7 +2334,69 @@ def materialize_root_authority_audit(
     release_publication_count = sum(
         (release_run_dir / name).exists() for name in release_publication_artifacts
     )
+    methods_paper_text = (
+        (release_run_dir / "methods_paper.md").read_text(encoding="utf-8")
+        if (release_run_dir / "methods_paper.md").exists()
+        else ""
+    )
+    catalog_paper_text = (
+        (release_run_dir / "catalog_paper.md").read_text(encoding="utf-8")
+        if (release_run_dir / "catalog_paper.md").exists()
+        else ""
+    )
+    case_studies_text = (
+        (release_run_dir / "object_case_studies.md").read_text(encoding="utf-8")
+        if (release_run_dir / "object_case_studies.md").exists()
+        else ""
+    )
+    publication_index_text = (
+        (release_run_dir / "publication_index.md").read_text(encoding="utf-8")
+        if (release_run_dir / "publication_index.md").exists()
+        else ""
+    )
+    optimization_experiments = _dict_list(optimization_payload, "experiments")
+    optimization_pareto_fronts_present = all(
+        int(str(item.get("pareto_front_size", 0))) >= 1
+        and bool(_dict_list(item, "pareto_front"))
+        for item in optimization_experiments
+    )
+    continuum_payload = _load_required_run(artifact_root, "continuum_validation")
+    continuum_summary = _mapping_value(continuum_payload, "summary")
+    continuum_cases = _dict_list(continuum_payload, "cases")
+    continuum_real_case_count = sum(
+        str(item.get("evidence_level", "")).startswith("real_")
+        for item in continuum_cases
+    )
     release_objects = _dict_list(release_payload, "objects")
+    release_case_studies_cover_objects = all(
+        str(item.get("object_uid", "")) in case_studies_text for item in release_objects
+    )
+    release_methods_sections_present = all(
+        section in methods_paper_text
+        for section in (
+            "## Validation Program",
+            "## Benchmark Results",
+            "## Optimization and Mapping",
+            "## Literature Comparison Sample",
+        )
+    )
+    release_catalog_sections_present = all(
+        section in catalog_paper_text
+        for section in (
+            "## Ranked Candidates",
+            "## Transition Catalog",
+            "## Tables and Figures",
+        )
+    )
+    publication_index_sections_present = all(
+        section in publication_index_text
+        for section in (
+            "## Summary",
+            "## Benchmark Tables",
+            "## Audio Products",
+            "## Publication Artifacts",
+        )
+    )
     discovery_artifact_count = sum(
         (
             (
@@ -2161,6 +2498,14 @@ def materialize_root_authority_audit(
             "detail": f"corpus_evidence={corpus_evidence}",
         },
         {
+            "condition": "silver_catalog_full_scope_present",
+            "ok": int(str(corpus_summary.get("silver_catalog_object_count", 0))) >= 800,
+            "detail": (
+                "silver_catalog_object_count="
+                f"{corpus_summary.get('silver_catalog_object_count')}"
+            ),
+        },
+        {
             "condition": "raw_public_data_preserved",
             "ok": raw_artifacts_exist,
             "detail": f"raw_root={raw_root}",
@@ -2215,6 +2560,28 @@ def materialize_root_authority_audit(
             ),
         },
         {
+            "condition": "optimization_reports_pareto_fronts",
+            "ok": optimization_pareto_fronts_present,
+            "detail": (
+                "optimization_experiments="
+                f"{len(optimization_experiments)}, "
+                f"pareto_fronts_present={optimization_pareto_fronts_present}"
+            ),
+        },
+        {
+            "condition": "continuum_real_data_cases_present",
+            "ok": continuum_real_case_count >= 3
+            and _float_value(continuum_summary, "classification_accuracy") >= 0.75
+            and _float_value(continuum_summary, "cadence_stability_score") >= 0.75,
+            "detail": (
+                f"continuum_real_case_count={continuum_real_case_count}, "
+                "classification_accuracy="
+                f"{continuum_summary.get('classification_accuracy')}, "
+                "cadence_stability_score="
+                f"{continuum_summary.get('cadence_stability_score')}"
+            ),
+        },
+        {
             "condition": "discovery_candidates_present",
             "ok": int(str(discovery_summary.get("candidate_count", 0))) >= 5,
             "detail": f"candidate_count={discovery_summary.get('candidate_count')}",
@@ -2246,6 +2613,19 @@ def materialize_root_authority_audit(
             "condition": "release_publication_artifacts_present",
             "ok": release_publication_count == len(release_publication_artifacts),
             "detail": (f"release_publication_count={release_publication_count}"),
+        },
+        {
+            "condition": "release_narratives_are_substantive",
+            "ok": release_methods_sections_present
+            and release_catalog_sections_present
+            and publication_index_sections_present
+            and release_case_studies_cover_objects,
+            "detail": (
+                f"methods_sections={release_methods_sections_present}, "
+                f"catalog_sections={release_catalog_sections_present}, "
+                f"publication_index_sections={publication_index_sections_present}, "
+                f"case_studies_cover_objects={release_case_studies_cover_objects}"
+            ),
         },
     ]
     promotion_allowed = all(bool(condition["ok"]) for condition in conditions)

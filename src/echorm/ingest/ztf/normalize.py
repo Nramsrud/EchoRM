@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ...calibrate.time import rest_frame_mjd
 from ...eval.qc import assess_series_quality
 from ...schemas import PHOTOMETRY_SCHEMA
 from .provenance import ZtfCachedResponse
@@ -9,6 +10,7 @@ from .provenance import ZtfCachedResponse
 
 def build_photometry_records(response: ZtfCachedResponse) -> list[dict[str, object]]:
     """Build canonical photometry records from a cached response."""
+    time_origin_mjd = min(row.mjd_obs for row in response.rows)
     qc = assess_series_quality(
         mjd_obs=tuple(row.mjd_obs for row in response.rows),
         quality_flags=tuple(
@@ -23,7 +25,11 @@ def build_photometry_records(response: ZtfCachedResponse) -> list[dict[str, obje
             "survey": "ztf",
             "band": row.band,
             "mjd_obs": row.mjd_obs,
-            "mjd_rest": row.mjd_obs,
+            "mjd_rest": rest_frame_mjd(
+                row.mjd_obs,
+                0.0,
+                reference_epoch_mjd=time_origin_mjd,
+            ),
             "flux": row.flux,
             "flux_err": row.flux_err,
             "mag": row.mag,

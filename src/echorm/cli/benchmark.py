@@ -221,17 +221,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(index_path)
         return 0
-    if args.command == "optimization-closeout":
-        index_path = materialize_optimization_closeout_package(
+    if args.command == "discovery-analysis":
+        index_path = materialize_discovery_analysis_package(
+            repo_root=repo_root,
             artifact_root=artifact_root,
             run_id=args.run_id,
             profile="root_closeout" if args.profile == "baseline" else args.profile,
         )
         print(index_path)
         return 0
-    if args.command == "discovery-analysis":
-        index_path = materialize_discovery_analysis_package(
-            repo_root=repo_root,
+    if args.command == "optimization-closeout":
+        index_path = materialize_optimization_closeout_package(
             artifact_root=artifact_root,
             run_id=args.run_id,
             profile="root_closeout" if args.profile == "baseline" else args.profile,

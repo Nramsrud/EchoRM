@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..calibrate.normalize import science_normalize, sonification_normalize
+from ..calibrate.time import rest_frame_mjd
 from ..eval.qc import assess_series_quality
 from ..schemas import OBJECT_MANIFEST_SCHEMA, PHOTOMETRY_SCHEMA, SPECTRAL_EPOCH_SCHEMA
 from .benchmark_corpus import BenchmarkObject, DiscoveryHoldoutRecord
@@ -30,6 +32,11 @@ try:
 except ImportError:  # pragma: no cover
     Time = None
     fits = None
+
+try:
+    import pandas as pd  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover
+    pd = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +85,13 @@ def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
         writer.writerows(rows)
 
 
+def _write_parquet(path: Path, rows: list[dict[str, object]]) -> None:
+    if pd is None or not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_parquet(path, index=False)
+
+
 def _three_column_rows(text: str) -> tuple[tuple[float, float, float], ...]:
     rows: list[tuple[float, float, float]] = []
     for raw_line in text.splitlines():
@@ -108,6 +122,7 @@ def _build_photometry_rows(
     survey: str,
     band: str,
     redshift: float,
+    time_origin_mjd: float,
     rows: tuple[tuple[float, float, float], ...],
     source_release: str,
     flux_unit: str,
@@ -117,37 +132,76 @@ def _build_photometry_rows(
         quality_flags=tuple("ok" for _ in rows),
         line_coverage=band,
     )
+    sample_pairs = tuple((row[0], row[1]) for row in rows)
+    reference_flux = _median([abs(row[1]) for row in rows]) or 1.0
+    science_points = {
+        round(point.mjd_obs, 6): point
+        for point in science_normalize(
+            sample_pairs,
+            reference_flux=reference_flux,
+        )
+    }
+    sonification_points = {
+        round(point.mjd_obs, 6): point for point in sonification_normalize(sample_pairs)
+    }
     records: list[dict[str, object]] = []
     for _index, (mjd_obs, flux, flux_err) in enumerate(rows):
         raw_hash = hashlib.sha256(
             f"{object_uid}:{band}:{mjd_obs}:{flux}:{flux_err}".encode()
         ).hexdigest()[:16]
-        records.append(
-            PHOTOMETRY_SCHEMA.ordered_record(
-                {
-                    "object_uid": object_uid,
-                    "survey": survey,
-                    "band": band,
-                    "mjd_obs": mjd_obs,
-                    "mjd_rest": mjd_obs / (1.0 + redshift),
-                    "flux": flux,
-                    "flux_err": flux_err,
-                    "mag": -2.5 * math.log10(max(flux, 1e-6)),
-                    "mag_err": 0.0,
-                    "flux_unit": flux_unit,
-                    "source_release": source_release,
-                    "raw_row_hash": raw_hash,
-                    "normalization_reference": "raw_flux",
-                    "transform_hash": "raw",
-                    "quality_flag": "ok",
-                    "is_upper_limit": False,
-                    "gap_flag": qc.gap_flag,
-                    "quality_score": qc.quality_score,
-                    "review_priority": qc.review_priority,
-                    "normalization_mode": "raw",
-                }
-            )
+        science_point = science_points[round(mjd_obs, 6)]
+        sonification_point = sonification_points[round(mjd_obs, 6)]
+        variants = (
+            (flux, "raw", "raw_flux", "raw"),
+            (
+                science_point.normalized_flux,
+                science_point.normalization_mode,
+                science_point.normalization_reference,
+                science_point.transform_hash,
+            ),
+            (
+                sonification_point.normalized_flux,
+                sonification_point.normalization_mode,
+                sonification_point.normalization_reference,
+                sonification_point.transform_hash,
+            ),
         )
+        for (
+            normalized_flux,
+            normalization_mode,
+            normalization_reference,
+            transform_hash,
+        ) in variants:
+            records.append(
+                PHOTOMETRY_SCHEMA.ordered_record(
+                    {
+                        "object_uid": object_uid,
+                        "survey": survey,
+                        "band": band,
+                        "mjd_obs": mjd_obs,
+                        "mjd_rest": rest_frame_mjd(
+                            mjd_obs,
+                            redshift,
+                            reference_epoch_mjd=time_origin_mjd,
+                        ),
+                        "flux": normalized_flux,
+                        "flux_err": flux_err,
+                        "mag": -2.5 * math.log10(max(flux, 1e-6)),
+                        "mag_err": 0.0,
+                        "flux_unit": flux_unit,
+                        "source_release": source_release,
+                        "raw_row_hash": raw_hash,
+                        "normalization_reference": normalization_reference,
+                        "transform_hash": transform_hash,
+                        "quality_flag": "ok",
+                        "is_upper_limit": False,
+                        "gap_flag": qc.gap_flag,
+                        "quality_score": qc.quality_score,
+                        "review_priority": qc.review_priority,
+                        "normalization_mode": normalization_mode,
+                    }
+                )
+            )
     return tuple(records)
 
 
@@ -159,6 +213,7 @@ def _build_object_manifest(
     dec_deg: float,
     redshift: float,
     aliases: tuple[str, ...],
+    time_origin_mjd: float,
     reference_epoch_mjd: float,
     line_coverage: str,
     tier: str,
@@ -172,6 +227,7 @@ def _build_object_manifest(
             "ra_deg": ra_deg,
             "dec_deg": dec_deg,
             "redshift": redshift,
+            "time_origin_mjd": time_origin_mjd,
             "survey_ids": ",".join(aliases),
             "alias_group": ",".join(aliases),
             "reference_epoch_mjd": reference_epoch_mjd,
@@ -259,6 +315,7 @@ def _agn_watch_spectral_records(
     *,
     object_uid: str,
     redshift: float,
+    time_origin_mjd: float,
     archive_path: Path,
     source_label: str,
 ) -> tuple[dict[str, object], ...]:
@@ -293,7 +350,15 @@ def _agn_watch_spectral_records(
                 "epoch_uid": spectrum_path.stem,
                 "survey": "agn_watch",
                 "mjd_obs": mjd_obs,
-                "mjd_rest": mjd_obs / (1.0 + redshift) if mjd_obs else 0.0,
+                "mjd_rest": (
+                    rest_frame_mjd(
+                        mjd_obs,
+                        redshift,
+                        reference_epoch_mjd=time_origin_mjd,
+                    )
+                    if mjd_obs
+                    else 0.0
+                ),
                 "z": redshift,
                 "spec_path": str(spectrum_path),
                 "wave_min": float(min(wavelength_obs)),
@@ -331,6 +396,7 @@ def _sdss_spectral_record(
     *,
     object_uid: str,
     redshift: float,
+    time_origin_mjd: float,
     spectrum_path: Path,
     source_label: str,
 ) -> dict[str, object]:
@@ -360,7 +426,11 @@ def _sdss_spectral_record(
             "epoch_uid": spectrum_path.stem,
             "survey": "sdss_rm",
             "mjd_obs": mjd_obs,
-            "mjd_rest": mjd_obs / (1.0 + redshift),
+            "mjd_rest": rest_frame_mjd(
+                mjd_obs,
+                redshift,
+                reference_epoch_mjd=time_origin_mjd,
+            ),
             "z": redshift,
             "spec_path": str(spectrum_path),
             "wave_min": float(min(wavelength_obs)),
@@ -519,11 +589,13 @@ def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObjec
         )
         continuum_rows = _three_column_rows(continuum_text)
         response_rows = _three_column_rows(response_text)
+        time_origin_mjd = _as_float(continuum_rows[0][0])
         photometry_records = _build_photometry_rows(
             object_uid=str(spec["object_uid"]),
             survey="agn_watch",
             band=str(spec["continuum_band"]),
             redshift=_as_float(spec["redshift"]),
+            time_origin_mjd=time_origin_mjd,
             rows=continuum_rows,
             source_release="agnwatch-2001",
             flux_unit="agnwatch_native",
@@ -533,6 +605,7 @@ def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObjec
             survey="agn_watch",
             band=str(spec["line_name"]).lower(),
             redshift=_as_float(spec["redshift"]),
+            time_origin_mjd=time_origin_mjd,
             rows=response_rows,
             source_release="agnwatch-2001",
             flux_unit="agnwatch_native",
@@ -544,7 +617,8 @@ def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObjec
             dec_deg=_as_float(spec["dec_deg"]),
             redshift=_as_float(spec["redshift"]),
             aliases=(str(spec["canonical_name"]),),
-            reference_epoch_mjd=_as_float(continuum_rows[0][0]),
+            time_origin_mjd=time_origin_mjd,
+            reference_epoch_mjd=time_origin_mjd,
             line_coverage="Hbeta",
             tier="gold",
             literature_refs=(
@@ -556,6 +630,7 @@ def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObjec
             repo_root,
             object_uid=str(spec["object_uid"]),
             redshift=_as_float(spec["redshift"]),
+            time_origin_mjd=time_origin_mjd,
             archive_path=spectra_archive,
             source_label=str(spec["spectra_url"]),
         )
@@ -719,6 +794,7 @@ def load_literal_silver_benchmark_objects(
             if isinstance(aliases_raw, tuple)
             else (str(aliases_raw),)
         )
+        time_origin_mjd = _as_float(rows[0][0])
         continuum_rows = tuple(
             (mjd, cont, cont_err) for mjd, cont, cont_err, _, _ in rows
         )
@@ -743,6 +819,13 @@ def load_literal_silver_benchmark_objects(
             / "published_lightcurve.csv",
             raw_table_rows,
         )
+        _write_parquet(
+            _raw_root(repo_root)
+            / "sdss_rm"
+            / f"sdssrm-{rmid}"
+            / "published_lightcurve.normalized.parquet",
+            raw_table_rows,
+        )
         spectrum_path = _download_sdss_spectrum(
             repo_root,
             object_uid=f"sdssrm-{rmid}",
@@ -755,6 +838,7 @@ def load_literal_silver_benchmark_objects(
             _sdss_spectral_record(
                 object_uid=f"sdssrm-{rmid}",
                 redshift=_as_float(meta["redshift"]),
+                time_origin_mjd=time_origin_mjd,
                 spectrum_path=spectrum_path,
                 source_label="SDSS DR17 SAS lite spectra",
             ),
@@ -764,6 +848,7 @@ def load_literal_silver_benchmark_objects(
             survey="sdss_rm",
             band="g",
             redshift=_as_float(meta["redshift"]),
+            time_origin_mjd=time_origin_mjd,
             rows=continuum_rows,
             source_release="J/ApJ/818/30",
             flux_unit="published_flux",
@@ -773,6 +858,7 @@ def load_literal_silver_benchmark_objects(
             survey="sdss_rm",
             band=str(meta["line_name"]).lower(),
             redshift=_as_float(meta["redshift"]),
+            time_origin_mjd=time_origin_mjd,
             rows=response_rows,
             source_release="J/ApJ/818/30",
             flux_unit="published_flux",
@@ -784,7 +870,8 @@ def load_literal_silver_benchmark_objects(
             dec_deg=_as_float(meta["dec_deg"]),
             redshift=_as_float(meta["redshift"]),
             aliases=aliases,
-            reference_epoch_mjd=_as_float(rows[0][0]),
+            time_origin_mjd=time_origin_mjd,
+            reference_epoch_mjd=time_origin_mjd,
             line_coverage=str(meta["line_name"]),
             tier="silver",
             literature_refs="Shen et al. 2016 SDSS-RM published light curves",
@@ -815,6 +902,40 @@ def load_literal_silver_benchmark_objects(
         )
     objects.sort(key=lambda item: item.object_uid)
     return tuple(objects)
+
+
+def load_literal_silver_full_catalog_manifest(
+    repo_root: Path,
+) -> dict[str, object]:
+    """Load the full public SDSS-RM catalog scope for freeze accounting."""
+    rows = _cached_vizier_rows(
+        repo_root,
+        cache_name="sdss_rm_full_catalog",
+        catalog_id="J/ApJS/241/34",
+        table_name="J/ApJS/241/34/catalog",
+        field_names=("RMID", "RAJ2000", "DEJ2000", "zsys", "Plate", "Fiber", "MJD"),
+    )
+    object_uids = tuple(
+        sorted(
+            f"sdssrm-{_as_int(row['RMID'])}"
+            for row in rows
+            if str(row.get("RMID", "")).strip()
+        )
+    )
+    manifest_seed = "|".join(object_uids)
+    manifest_hash = hashlib.sha256(manifest_seed.encode("utf-8")).hexdigest()[:16]
+    return {
+        "corpus_id": "silver_catalog_full_scope",
+        "object_count": len(object_uids),
+        "object_uids": list(object_uids),
+        "scope_label": "root_catalog_full_scope",
+        "source_release": "J/ApJS/241/34",
+        "inclusion_criteria": [
+            "public SDSS-RM catalog object from the full released catalog",
+        ],
+        "evidence_levels": ["real_public_catalog"],
+        "manifest_hash": manifest_hash,
+    }
 
 
 def load_literal_discovery_holdout_records(
@@ -874,6 +995,22 @@ def load_literal_discovery_holdout_records(
         raw_rows = _read_ztf_rows(raw_path)
         if not raw_rows:
             continue
+        normalized_rows = [
+            {
+                **row,
+                "object_uid": object_uid,
+                "release_id": "ztf-dr24",
+                "query_radius_deg": 0.001,
+            }
+            for row in raw_rows
+        ]
+        _write_parquet(
+            _raw_root(repo_root)
+            / "ztf"
+            / object_uid
+            / "lightcurve.normalized.parquet",
+            normalized_rows,
+        )
         split_mjd = (_as_float(first["mjd"]) + _as_float(last["mjd"])) / 2.0
         pre_rows = [row for row in raw_rows if _as_float(row["mjd"]) <= split_mjd]
         post_rows = [row for row in raw_rows if _as_float(row["mjd"]) > split_mjd]
@@ -921,8 +1058,15 @@ def load_literal_discovery_holdout_records(
                     "selection": str(first["selection"]),
                     "zspec": _as_float(first["zspec"]),
                     "raw_lightcurve_path": str(raw_path),
+                    "normalized_parquet_path": str(
+                        _raw_root(repo_root)
+                        / "ztf"
+                        / object_uid
+                        / "lightcurve.normalized.parquet"
+                    ),
                     "raw_lightcurve_row_count": len(raw_rows),
                     "split_mjd": split_mjd,
+                    "release_id": "ztf-dr24",
                 },
                 notes=(
                     f"published state sequence count={len(rows)}",
@@ -940,20 +1084,42 @@ def build_measured_series(object_record: BenchmarkObject) -> MeasuredSeriesPair:
     """Align measured continuum and response records into one series pair."""
     if not object_record.response_records:
         raise ValueError(f"{object_record.object_uid} has no measured response records")
-    response_by_mjd = {
-        round(float(str(record["mjd_obs"])), 3): float(str(record["flux"]))
-        for record in object_record.response_records
-    }
+    tolerance_day = 0.25
+    response_rows = sorted(
+        (
+            (
+                float(str(record["mjd_obs"])),
+                float(str(record["flux"])),
+                index,
+            )
+            for index, record in enumerate(object_record.response_records)
+            if str(record.get("normalization_mode", "")) == "raw"
+        ),
+        key=lambda item: item[0],
+    )
+    used_response_indices: set[int] = set()
     mjd_obs: list[float] = []
     driver_values: list[float] = []
     response_values: list[float] = []
     for record in object_record.photometry_records:
-        mjd = round(float(str(record["mjd_obs"])), 3)
-        if mjd not in response_by_mjd:
+        if str(record.get("normalization_mode", "")) != "raw":
             continue
-        mjd_obs.append(mjd)
+        mjd = float(str(record["mjd_obs"]))
+        best_match: tuple[float, float, int] | None = None
+        for response_mjd, response_flux, response_index in response_rows:
+            if response_index in used_response_indices:
+                continue
+            delta = abs(response_mjd - mjd)
+            if delta > tolerance_day:
+                continue
+            if best_match is None or delta < abs(best_match[0] - mjd):
+                best_match = (response_mjd, response_flux, response_index)
+        if best_match is None:
+            continue
+        used_response_indices.add(best_match[2])
+        mjd_obs.append(round((mjd + best_match[0]) / 2.0, 3))
         driver_values.append(float(str(record["flux"])))
-        response_values.append(response_by_mjd[mjd])
+        response_values.append(best_match[1])
     if len(mjd_obs) < 5:
         raise ValueError(
             f"{object_record.object_uid} lacks sufficient aligned measurements"
@@ -963,4 +1129,71 @@ def build_measured_series(object_record: BenchmarkObject) -> MeasuredSeriesPair:
         driver_values=tuple(driver_values),
         response_values=tuple(response_values),
         response_evidence_level="real_measured_response",
+    )
+
+
+def build_interpolated_series(object_record: BenchmarkObject) -> MeasuredSeriesPair:
+    """Interpolate real response measurements onto the continuum cadence."""
+    if not object_record.response_records:
+        raise ValueError(f"{object_record.object_uid} has no measured response records")
+    photometry_rows = sorted(
+        (
+            (
+                float(str(record["mjd_obs"])),
+                float(str(record["flux"])),
+            )
+            for record in object_record.photometry_records
+            if str(record.get("normalization_mode", "")) == "raw"
+        ),
+        key=lambda item: item[0],
+    )
+    response_rows = sorted(
+        (
+            (
+                float(str(record["mjd_obs"])),
+                float(str(record["flux"])),
+            )
+            for record in object_record.response_records
+            if str(record.get("normalization_mode", "")) == "raw"
+        ),
+        key=lambda item: item[0],
+    )
+    if len(response_rows) < 2:
+        raise ValueError(
+            f"{object_record.object_uid} lacks sufficient response points "
+            "to interpolate"
+        )
+    response_cursor = 0
+    mjd_obs: list[float] = []
+    driver_values: list[float] = []
+    response_values: list[float] = []
+    for mjd, flux in photometry_rows:
+        if mjd < response_rows[0][0] or mjd > response_rows[-1][0]:
+            continue
+        while (
+            response_cursor + 1 < len(response_rows)
+            and response_rows[response_cursor + 1][0] < mjd
+        ):
+            response_cursor += 1
+        if response_cursor + 1 >= len(response_rows):
+            break
+        left_mjd, left_flux = response_rows[response_cursor]
+        right_mjd, right_flux = response_rows[response_cursor + 1]
+        if right_mjd == left_mjd:
+            response_flux = left_flux
+        else:
+            fraction = (mjd - left_mjd) / (right_mjd - left_mjd)
+            response_flux = left_flux + fraction * (right_flux - left_flux)
+        mjd_obs.append(mjd)
+        driver_values.append(flux)
+        response_values.append(response_flux)
+    if len(mjd_obs) < 5:
+        raise ValueError(
+            f"{object_record.object_uid} lacks sufficient interpolated measurements"
+        )
+    return MeasuredSeriesPair(
+        mjd_obs=tuple(mjd_obs),
+        driver_values=tuple(driver_values),
+        response_values=tuple(response_values),
+        response_evidence_level="real_interpolated_response",
     )

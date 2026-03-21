@@ -62,14 +62,19 @@ def test_backend_search_emits_multi_objective_scorecards() -> None:
             plot_audio_accuracy=0.9,
             runtime_sec_mean=0.4,
             reproducibility_rate=1.0,
+            anomaly_precision_at_k=0.8,
+            anomaly_auc=0.85,
+            interpretability_penalty=0.1,
         ),
         allowed_fields=("mapping_family",),
         prohibited_targets=("benchmark_labels", "discovery_pool"),
         trial_budget=1,
     )
     assert backend.backend_name == "optuna"
-    assert backend.best_scorecard.overall > 0.0
+    assert backend.best_scorecard.m2_coverage_calibration > 0.0
+    assert len(backend.pareto_front) == 1
     trial_payload = backend.trials[0].to_dict()
     scorecard = trial_payload["scorecard"]
     assert isinstance(scorecard, dict)
-    assert float(str(scorecard["science"])) > 0.0
+    assert float(str(scorecard["m2_coverage_calibration"])) > 0.0
+    assert float(str(scorecard["representative_utility"])) > 0.0

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from ._official import percentile_bounds, repo_root, run_json_backend, series_payload
@@ -48,17 +49,32 @@ def run_pypetal(
             timeout_sec=config.timeout_sec,
         )
     except Exception as exc:  # pragma: no cover - exercised in integration flows
-        return _unavailable_run(
+        return _executed_but_invalid_run(
             object_uid=object_uid,
             pair_id=pair_id,
             driver=driver,
             response=response,
             detail=str(exc),
         )
-    centroid_samples = [float(item) for item in payload.get("centroid_samples", [])]
-    lag_median, lag_lo, lag_hi = percentile_bounds(
-        centroid_samples or [float(payload["lag_median"])]
-    )
+    centroid_samples = [
+        float(item)
+        for item in payload.get("centroid_samples", [])
+        if math.isfinite(float(item))
+    ]
+    payload_lag = float(payload["lag_median"])
+    peak_lag = float(payload["peak_lag"])
+    fallback_samples = [
+        value for value in (payload_lag, peak_lag) if math.isfinite(value)
+    ]
+    if not centroid_samples and not fallback_samples:
+        return _executed_but_invalid_run(
+            object_uid=object_uid,
+            pair_id=pair_id,
+            driver=driver,
+            response=response,
+            detail="pypetal returned no finite lag samples",
+        )
+    lag_median, lag_lo, lag_hi = percentile_bounds(centroid_samples or fallback_samples)
     return LagRun(
         object_uid=object_uid,
         pair_id=pair_id,
@@ -77,7 +93,7 @@ def run_pypetal(
             "package_name": "pypetal",
             "package_version": str(payload.get("package_version", "unknown")),
             "centroid_samples": centroid_samples,
-            "peak_lag": float(payload["peak_lag"]),
+            "peak_lag": peak_lag,
             "artifact_count": int(payload.get("artifact_count", 0)),
         },
         runtime_metadata={
@@ -85,6 +101,37 @@ def run_pypetal(
                 "nsim": config.nsim,
             }
         },
+    )
+
+
+def _executed_but_invalid_run(
+    *,
+    object_uid: str,
+    pair_id: str,
+    driver: TimeSeries,
+    response: TimeSeries,
+    detail: str,
+) -> LagRun:
+    return LagRun(
+        object_uid=object_uid,
+        pair_id=pair_id,
+        driver_channel=driver.channel,
+        response_channel=response.channel,
+        method="pypetal",
+        lag_median=0.0,
+        lag_lo=0.0,
+        lag_hi=0.0,
+        significance=0.0,
+        alias_score=1.0,
+        quality_score=0.0,
+        diagnostics={
+            "backend_mode": "official_package_subprocess",
+            "evidence_level": "official_package_execution",
+            "package_name": "pypetal",
+            "detail": detail,
+            "execution_status": "no_usable_lag_result",
+        },
+        runtime_metadata={"config": {"nsim": 0}},
     )
 
 

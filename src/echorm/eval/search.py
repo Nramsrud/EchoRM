@@ -38,8 +38,49 @@ class SearchBackendResult:
 
     backend_name: str
     trials: tuple[BackendSearchTrial, ...]
+    pareto_front: tuple[BackendSearchTrial, ...]
     best_params: dict[str, object]
     best_scorecard: ObjectiveScorecard
+
+
+def _ordered_pareto_trials(
+    trials: list[BackendSearchTrial],
+) -> tuple[tuple[BackendSearchTrial, ...], tuple[BackendSearchTrial, ...]]:
+    if not trials:
+        return (), ()
+    domination_counts: dict[int, int] = {}
+    for index, trial in enumerate(trials):
+        domination_counts[index] = sum(
+            other.scorecard.dominates(trial.scorecard)
+            for other in trials
+            if other is not trial
+        )
+    ordered = tuple(
+        trial
+        for _index, trial in sorted(
+            enumerate(trials),
+            key=lambda item: (
+                domination_counts[item[0]],
+                -item[1].scorecard.representative_utility,
+                tuple(-value for value in item[1].scorecard.maximize_vector()),
+            ),
+        )
+    )
+    pareto_front = tuple(
+        trial
+        for index, trial in enumerate(trials)
+        if domination_counts[index] == 0
+    )
+    pareto_front = tuple(
+        sorted(
+            pareto_front,
+            key=lambda trial: (
+                -trial.scorecard.representative_utility,
+                tuple(-value for value in trial.scorecard.maximize_vector()),
+            ),
+        )
+    )
+    return ordered, pareto_front
 
 
 def run_grid_search(
@@ -82,20 +123,21 @@ def run_backend_search(
         )
         scorecard = evaluator(candidate)
         trials.append(BackendSearchTrial(params=candidate, scorecard=scorecard))
-    ordered = tuple(
-        sorted(trials, key=lambda trial: trial.scorecard.overall, reverse=True)
-    )
+    ordered, pareto_front = _ordered_pareto_trials(trials)
     if not ordered:
-        zero = ObjectiveScorecard(0.0, 0.0, 0.0, 0.0)
+        zero = ObjectiveScorecard(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0)
         return SearchBackendResult(
             backend_name=backend_name,
             trials=(),
+            pareto_front=(),
             best_params={},
             best_scorecard=zero,
         )
+    representative = pareto_front[0] if pareto_front else ordered[0]
     return SearchBackendResult(
         backend_name=backend_name,
         trials=ordered,
-        best_params=ordered[0].params,
-        best_scorecard=ordered[0].scorecard,
+        pareto_front=pareto_front,
+        best_params=representative.params,
+        best_scorecard=representative.scorecard,
     )

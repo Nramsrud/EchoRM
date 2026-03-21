@@ -58,12 +58,25 @@ def build_release_index(bundle: dict[str, object]) -> str:
     publication_artifacts = tuple(
         str(value) for value in publication_artifacts_object
     )
+    benchmark_table_lines = "\n".join(f"- {value}" for value in benchmark_tables[:12])
+    audio_lines = "\n".join(f"- {value}" for value in audio_products[:12]) or "- none"
+    publication_lines = (
+        "\n".join(f"- {value}" for value in publication_artifacts)
+        or "- none"
+    )
     return (
         f"# Release {version}\n\n"
-        f"- Catalog entries: {catalog_package['entry_count']}\n"
+        "## Summary\n\n"
         f"- Benchmark scope: {bundle['claims_scope']}\n"
+        f"- Catalog entries: {catalog_package['entry_count']}\n"
         f"- Benchmark tables: {len(benchmark_tables)}\n"
         f"- Audio products: {len(audio_products)}\n"
         f"- Provenance records: {len(provenance_records)}\n"
-        f"- Publication artifacts: {len(publication_artifacts)}\n"
+        f"- Publication artifacts: {len(publication_artifacts)}\n\n"
+        "## Benchmark Tables\n\n"
+        f"{benchmark_table_lines}\n\n"
+        "## Audio Products\n\n"
+        f"{audio_lines}\n\n"
+        "## Publication Artifacts\n\n"
+        f"{publication_lines}\n"
     )

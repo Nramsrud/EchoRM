@@ -12,6 +12,7 @@ OBJECT_MANIFEST_SCHEMA = TableSchema(
         "ra_deg",
         "dec_deg",
         "redshift",
+        "time_origin_mjd",
         "survey_ids",
         "alias_group",
         "reference_epoch_mjd",

@@ -634,6 +634,19 @@ projects:
     dependencies: ["0038", "0039", "0040", "0041", "0042", "0043", "0044", "0045"]
     tags: [playbook, remediation, adversarial-review, root-authority]
     notes: "This playbook supersedes any ambiguous interpretation of 0038 by mapping the current adversarial findings one-to-one to literal implementation, deliverable, and readiness obligations."
+  - id: "0047"
+    title: "Literal Root Authority Final Conformance Remediation"
+    summary: "Define the final remediation sequence required after the latest adversarial review to close the remaining literal root-authority gaps in data modeling, corpus scope, continuum validation, optimization, discovery outputs, and publication deliverables."
+    status: implementing
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/playbooks/0047-literal-root-authority-final-conformance-remediation.md
+      plan: ark/plans/0047-literal-root-authority-final-conformance-remediation.md
+      review: null
+    dependencies: ["0046", "0039", "0040", "0041", "0042", "0043", "0044", "0045"]
+    tags: [playbook, remediation, adversarial-review, root-authority, conformance]
+    notes: "This package is the controlling response to the current adversarial findings and is acceptable only when the implementation, deliverables, and readiness state satisfy the root authority documents literally."
 ```
 ## Authority Notes
 

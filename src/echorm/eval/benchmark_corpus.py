@@ -38,7 +38,7 @@ from ..ingest.sdss_rm import (
 )
 from ..ingest.ztf import cached_response_from_payload
 from ..reports.render_bundle import build_render_bundle
-from ..rm.base import TimeSeries
+from ..rm.base import TimeSeries, build_pair_id
 from ..rm.celerite2 import run_celerite2
 from ..rm.consensus import build_consensus
 from ..rm.eztao import run_eztao
@@ -131,8 +131,13 @@ def build_manifest_metadata(
                 0,
             )
             + 1
-        )
+    )
     evidence_levels = sorted({item.evidence_level for item in objects})
+    scope_label = (
+        "root_benchmark_subset"
+        if corpus_id.endswith("full_scope")
+        else "benchmark_subset"
+    )
     if any(level.startswith("real_public") for level in evidence_levels):
         inclusion_criteria = [
             "public benchmark object acquired from authoritative source",
@@ -149,6 +154,7 @@ def build_manifest_metadata(
         "corpus_id": corpus_id,
         "object_count": len(objects),
         "object_uids": [item.object_uid for item in objects],
+        "scope_label": scope_label,
         "inclusion_criteria": inclusion_criteria,
         "exclusions": [],
         "strata_counts": strata_counts,
@@ -195,6 +201,7 @@ def build_discovery_manifest_metadata(
         "corpus_id": corpus_id,
         "object_count": len(records),
         "object_uids": [item.object_uid for item in records],
+        "scope_label": "published_clq_holdout_slice",
         "holdout_policy": "holdout_only_no_optimization",
         "release_ids": sorted({item.release_id for item in records}),
         "crossmatch_keys": sorted({item.crossmatch_key for item in records}),
@@ -405,6 +412,7 @@ def derive_driver_series(object_record: BenchmarkObject) -> tuple[float, ...]:
     """Derive a benchmark-ready continuum series from frozen records."""
     values = tuple(
         float(str(record["flux"])) for record in object_record.photometry_records
+        if str(record.get("normalization_mode", "")) == "raw"
     )
     return _expand_series(values)
 
@@ -487,6 +495,8 @@ def _execute_method_results(
     response: TimeSeries,
     lag_steps: int,
     include_advanced: bool = False,
+    method_subset: tuple[str, ...] | None = None,
+    benchmark_profile: str = "default",
 ) -> tuple[SerializedLagResult, ...]:
     def _thin_series(
         series: TimeSeries,
@@ -507,48 +517,81 @@ def _execute_method_results(
             values=values[:max_points],
         )
 
-    benchmark_javelin = JavelinConfig(
-        nwalkers=10,
-        n_burnin=2,
-        n_chain=4,
-        timeout_sec=20,
+    benchmark_javelin = (
+        JavelinConfig(nwalkers=10, n_burnin=2, n_chain=4, timeout_sec=20)
+        if benchmark_profile == "default"
+        else JavelinConfig(nwalkers=12, n_burnin=2, n_chain=3, timeout_sec=20)
     )
-    benchmark_pyroa = PyroaConfig(
-        n_samples=40,
-        n_burnin=20,
-        init_tau=max(1.0, float(lag_steps)),
-        timeout_sec=30,
+    benchmark_pyroa = (
+        PyroaConfig(
+            n_samples=40,
+            n_burnin=20,
+            init_tau=max(1.0, float(lag_steps)),
+            timeout_sec=30,
+        )
+        if benchmark_profile == "default"
+        else PyroaConfig(
+            n_samples=18,
+            n_burnin=8,
+            init_tau=max(1.0, float(lag_steps)),
+            timeout_sec=10,
+        )
     )
-    javelin_driver = _thin_series(driver, max_points=12)
-    javelin_response = _thin_series(response, max_points=12)
-    model_driver = _thin_series(driver, max_points=16)
-    model_response = _thin_series(response, max_points=16)
-    pyccf_run = run_pyccf(
-        object_uid=object_uid,
-        driver=model_driver,
-        response=model_response,
-    )
-    pyzdcf_run = run_pyzdcf(
-        object_uid=object_uid,
-        driver=model_driver,
-        response=model_response,
-    )
-    pair_id = pyccf_run.pair_id
-    javelin_run = run_javelin(
-        object_uid=object_uid,
-        pair_id=pair_id,
-        driver=javelin_driver,
-        response=javelin_response,
-        config=benchmark_javelin,
-    )
-    pyroa_run = run_pyroa(
-        object_uid=object_uid,
-        pair_id=pair_id,
-        driver=model_driver,
-        response=model_response,
-        config=benchmark_pyroa,
-    )
-    runs = [pyccf_run, pyzdcf_run, javelin_run, pyroa_run]
+    active_methods = set(method_subset or ("pyccf", "pyzdcf", "javelin", "pyroa"))
+    if benchmark_profile == "default":
+        model_max_points = 16
+        javelin_max_points = 12
+    elif active_methods == {"pyzdcf"}:
+        model_max_points = 24
+        javelin_max_points = 8
+    elif "pypetal" in active_methods:
+        model_max_points = 16
+        javelin_max_points = 8
+    else:
+        model_max_points = 10
+        javelin_max_points = 8
+    javelin_driver = _thin_series(driver, max_points=javelin_max_points)
+    javelin_response = _thin_series(response, max_points=javelin_max_points)
+    model_driver = _thin_series(driver, max_points=model_max_points)
+    model_response = _thin_series(response, max_points=model_max_points)
+    pair_id = build_pair_id(model_driver, model_response)
+    runs = []
+    if "pyccf" in active_methods:
+        pyccf_run = run_pyccf(
+            object_uid=object_uid,
+            driver=model_driver,
+            response=model_response,
+        )
+        runs.append(pyccf_run)
+        pair_id = pyccf_run.pair_id
+    if "pyzdcf" in active_methods:
+        runs.append(
+            run_pyzdcf(
+                object_uid=object_uid,
+                driver=model_driver,
+                response=model_response,
+            )
+        )
+    if "javelin" in active_methods:
+        runs.append(
+            run_javelin(
+                object_uid=object_uid,
+                pair_id=pair_id,
+                driver=javelin_driver,
+                response=javelin_response,
+                config=benchmark_javelin,
+            )
+        )
+    if "pyroa" in active_methods:
+        runs.append(
+            run_pyroa(
+                object_uid=object_uid,
+                pair_id=pair_id,
+                driver=model_driver,
+                response=model_response,
+                config=benchmark_pyroa,
+            )
+        )
     if include_advanced:
         runs.extend(
             [
@@ -557,7 +600,7 @@ def _execute_method_results(
                     pair_id=pair_id,
                     driver=model_driver,
                     response=model_response,
-                    config=PypetalConfig(nsim=6, timeout_sec=5),
+                    config=PypetalConfig(nsim=8, timeout_sec=20),
                 ),
                 run_litmus(
                     object_uid=object_uid,
@@ -610,6 +653,9 @@ def run_method_suite(
     include_advanced: bool = False,
     mjd_obs: tuple[float, ...] | None = None,
     response_evidence_level: str = "real_fixture_proxy_response",
+    method_subset: tuple[str, ...] | None = None,
+    benchmark_profile: str = "default",
+    include_null_suite: bool = True,
 ) -> dict[str, object]:
     """Run the supported method suite on one derived benchmark series."""
     series_mjd_obs = (
@@ -633,44 +679,51 @@ def run_method_suite(
         response=response,
         lag_steps=lag_steps,
         include_advanced=include_advanced,
+        method_subset=method_subset,
+        benchmark_profile=benchmark_profile,
     )
     method_results = _serialize_method_payloads(serialized)
 
-    null_variants = {
-        "reversed_response": tuple(reversed(response_values)),
-        "shuffled_pair": tuple(
-            response_values[index]
-            for index in (2, 0, 3, 1, 6, 4, 7, 5)[: len(response_values)]
-        ),
-        "misaligned_pair": response_values[1:] + response_values[:1],
-        "sparse_cadence": tuple(
-            response_values[index] if index % 2 == 0 else response_values[index - 1]
-            for index in range(len(response_values))
-        ),
-    }
     null_results: list[SerializedLagResult] = []
     null_suite: list[dict[str, object]] = []
-    for null_id, null_values in null_variants.items():
-        null_series = TimeSeries(
-            channel=f"{response.channel}_{null_id}",
-            mjd_obs=series_mjd_obs,
-            values=null_values,
-        )
-        variant_results = _execute_method_results(
-            object_uid=f"{object_record.object_uid}-{null_id}",
-            driver=driver,
-            response=null_series,
-            lag_steps=lag_steps,
-            include_advanced=False,
-        )
-        null_results.extend(variant_results)
-        null_suite.append(
-            {
-                "null_id": null_id,
-                "evidence_level": "synthetic_control",
-                "method_results": _serialize_method_payloads(variant_results),
-            }
-        )
+    if include_null_suite:
+        null_variants = {
+            "reversed_response": tuple(reversed(response_values)),
+            "shuffled_pair": tuple(
+                response_values[index]
+                for index in (2, 0, 3, 1, 6, 4, 7, 5)[: len(response_values)]
+            ),
+            "misaligned_pair": response_values[1:] + response_values[:1],
+            "sparse_cadence": tuple(
+                response_values[index]
+                if index % 2 == 0
+                else response_values[index - 1]
+                for index in range(len(response_values))
+            ),
+        }
+        for null_id, null_values in null_variants.items():
+            null_series = TimeSeries(
+                channel=f"{response.channel}_{null_id}",
+                mjd_obs=series_mjd_obs,
+                values=null_values,
+            )
+            variant_results = _execute_method_results(
+                object_uid=f"{object_record.object_uid}-{null_id}",
+                driver=driver,
+                response=null_series,
+                lag_steps=lag_steps,
+                include_advanced=False,
+                method_subset=method_subset,
+                benchmark_profile=benchmark_profile,
+            )
+            null_results.extend(variant_results)
+            null_suite.append(
+                {
+                    "null_id": null_id,
+                    "evidence_level": "synthetic_control",
+                    "method_results": _serialize_method_payloads(variant_results),
+                }
+            )
     eligible_results = tuple(
         result for result in serialized if _is_eligible_result(result)
     )

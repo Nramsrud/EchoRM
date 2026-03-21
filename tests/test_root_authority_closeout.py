@@ -75,13 +75,13 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
         verification=verification,
         tools=tools,
     )
-    materialize_optimization_closeout_package(artifact_root=artifact_root)
     materialize_discovery_analysis_package(
         repo_root=ROOT,
         artifact_root=artifact_root,
         verification=verification,
         tools=tools,
     )
+    materialize_optimization_closeout_package(artifact_root=artifact_root)
     materialize_release_closeout_package(artifact_root=artifact_root)
     audit_path = materialize_root_authority_audit(artifact_root=artifact_root)
 
@@ -93,6 +93,16 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
     advanced_payload = json.loads(
         (artifact_root / "advanced_rigor" / "index.json").read_text(encoding="utf-8")
     )
+    corpus_payload = json.loads(
+        (artifact_root / "corpus_scaleout" / "index.json").read_text(encoding="utf-8")
+    )
+    optimization_payload = json.loads(
+        (artifact_root / "optimization_closeout" / "index.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert advanced_payload["summary"]["advanced_method_count"] >= 5
     assert advanced_payload["summary"]["advanced_object_count"] >= 1
     assert advanced_payload["summary"]["pyqsofit_coverage_rate"] >= 1.0
+    assert corpus_payload["summary"]["silver_catalog_object_count"] >= 800
+    assert optimization_payload["objective_metrics"]["anomaly_candidate_count"] >= 5

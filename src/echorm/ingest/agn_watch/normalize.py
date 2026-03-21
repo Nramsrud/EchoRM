@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ...calibrate.time import rest_frame_mjd
 from ...eval.qc import assess_series_quality
 from ...schemas import (
     OBJECT_MANIFEST_SCHEMA,
@@ -26,6 +27,10 @@ def build_object_manifest(
         "ra_deg": float(metadata["ra_deg"]),
         "dec_deg": float(metadata["dec_deg"]),
         "redshift": float(metadata["redshift"]),
+        "time_origin_mjd": min(
+            [row.mjd_obs for row in parsed.photometry_rows]
+            or [epoch.mjd_obs for epoch in parsed.spectral_epochs]
+        ),
         "survey_ids": metadata["survey_id"],
         "alias_group": metadata["survey_id"],
         "reference_epoch_mjd": min(
@@ -49,6 +54,7 @@ def build_photometry_records(
     band = parsed.metadata["band"]
     redshift = float(parsed.metadata["redshift"])
     unit = parsed.metadata["unit"]
+    time_origin_mjd = min(row.mjd_obs for row in parsed.photometry_rows)
     qc = assess_series_quality(
         mjd_obs=tuple(row.mjd_obs for row in parsed.photometry_rows),
         quality_flags=tuple(row.quality_flag for row in parsed.photometry_rows),
@@ -61,7 +67,11 @@ def build_photometry_records(
             "survey": "agn_watch",
             "band": band,
             "mjd_obs": row.mjd_obs,
-            "mjd_rest": row.mjd_obs / (1.0 + redshift),
+            "mjd_rest": rest_frame_mjd(
+                row.mjd_obs,
+                redshift,
+                reference_epoch_mjd=time_origin_mjd,
+            ),
             "flux": row.flux,
             "flux_err": row.flux_err,
             "mag": -2.5,
@@ -88,6 +98,10 @@ def build_spectral_epoch_records(
 ) -> list[dict[str, object]]:
     """Build canonical spectral-epoch records for a parsed spectral index."""
     redshift = float(parsed.metadata["redshift"])
+    time_origin_mjd = min(
+        [row.mjd_obs for row in parsed.photometry_rows]
+        or [epoch.mjd_obs for epoch in parsed.spectral_epochs]
+    )
     records: list[dict[str, object]] = []
     for epoch in parsed.spectral_epochs:
         record = {
@@ -95,7 +109,11 @@ def build_spectral_epoch_records(
             "epoch_uid": epoch.epoch_uid,
             "survey": "agn_watch",
             "mjd_obs": epoch.mjd_obs,
-            "mjd_rest": epoch.mjd_obs / (1.0 + redshift),
+            "mjd_rest": rest_frame_mjd(
+                epoch.mjd_obs,
+                redshift,
+                reference_epoch_mjd=time_origin_mjd,
+            ),
             "z": redshift,
             "spec_path": epoch.spec_path,
             "wave_min": epoch.wave_min,
