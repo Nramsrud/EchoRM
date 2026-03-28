@@ -60,8 +60,6 @@ jobs:
         uses: mamba-org/setup-micromamba@v2
         with:
           init-shell: bash
-          cache-environment: true
-          cache-downloads: true
 
       - name: Install system toolchain
         run: |
