@@ -14,22 +14,22 @@ releases:
     notes: "All committed outputs must remain formal, concise, precise, and limited to essential content."
   - version: "v0.2.0"
     name: "Benchmark Core"
-    status: active
+    status: released
     summary: "Deliver benchmark data access, calibration, inference, sonification, simulation, and validation on known lag-bearing systems."
     projects: ["0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0021", "0022", "0023", "0024", "0025", "0026", "0027", "0028", "0029", "0030"]
-    notes: "Validation on benchmark objects gates all later discovery claims."
+    notes: "Benchmark validation and review surfaces are integrated on main and remain the gate for all later discovery claims."
   - version: "v0.3.0"
     name: "Discovery, Optimization, and Scale-Out"
-    status: planning
+    status: active
     summary: "Complete the root-scope scientific program beyond the benchmark gate: advanced real-data inference, optimization, discovery hold-out analysis, analyst review surfaces, and release preparation."
     projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046"]
-    notes: "Discovery work remains downstream of fixed benchmark suites and immutable labels, and benchmark readiness remains a prerequisite."
+    notes: "The branch-level root-authority closeout stack is implemented and verified, but it is not yet integrated into main."
   - version: "v1.0.0"
     name: "Open Science Release"
     status: planning
     summary: "Package methods, catalog outputs, and reproducible artifacts for external release."
     projects: ["0020", "0037", "0044", "0045"]
-    notes: "Do not mark released until validation, discovery, and release artifacts are integrated."
+    notes: "Release artifacts are implemented on the active branch, but do not mark released until the release stack is integrated and reviewed."
 ```
 
 ## Projects
@@ -520,7 +520,7 @@ projects:
   - id: "0038"
     title: "Literal Root Authority Remediation Playbook"
     summary: "Define the remediation sequence that closes every adversarially identified gap between the current implementation and the literal requirements of the root authority documents."
-    status: specified
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
@@ -529,11 +529,11 @@ projects:
       review: null
     dependencies: ["0031", "0032", "0033", "0034", "0035", "0036", "0037"]
     tags: [playbook, remediation, root-authority, scientific-rigor]
-    notes: "This playbook replaces proxy-oriented closeout with literal root-authority compliance requirements and explicit non-acceptance rules."
+    notes: "This playbook is committed and superseded the earlier proxy-oriented closeout framing with literal root-authority compliance requirements and explicit non-acceptance rules."
   - id: "0039"
     title: "Real Backend and Spectral Backend Integration"
     summary: "Replace surrogate RM and spectral stand-ins with real third-party backend integrations and real execution diagnostics on tracked corpora."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
@@ -542,11 +542,11 @@ projects:
       review: null
     dependencies: ["0038", "0011", "0013", "0032"]
     tags: [rm, spectra, backends, real-data]
-    notes: "This package closes the surrogate-wrapper and pseudo-fit gap for pyPETaL, LITMUS, MICA2, EzTao, celerite2, and PyQSOFit."
+    notes: "This package is implemented on the active branch and closes the surrogate-wrapper and pseudo-fit gap for pyPETaL, LITMUS, MICA2, EzTao, celerite2, and PyQSOFit."
   - id: "0040"
     title: "Full Corpus Acquisition, Raw Preservation, and Freeze"
     summary: "Acquire, normalize, and freeze the literal gold, silver, and discovery corpora required by the root authority documents with preserved raw source products and provenance."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
@@ -555,11 +555,11 @@ projects:
       review: null
     dependencies: ["0038", "0006", "0007", "0008", "0009", "0033"]
     tags: [data, manifests, provenance, freeze]
-    notes: "This package replaces fixture-slice compliance with literal corpus-scale acquisition, raw preservation, and immutable freeze artifacts."
+    notes: "This package is implemented on the active branch and replaces fixture-slice compliance with literal corpus-scale acquisition, raw preservation, and immutable freeze artifacts."
   - id: "0041"
     title: "Real-Data Benchmark Execution and Validation Closure"
     summary: "Execute the full validation program on real continuum and line-response measurements from the frozen corpora and close the proxy-response benchmark gap."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
@@ -568,11 +568,11 @@ projects:
       review: null
     dependencies: ["0038", "0039", "0040", "0012", "0017"]
     tags: [validation, benchmarks, real-data, response]
-    notes: "This package requires real measured continuum and line-response series, full null diagnostics, and literature-facing benchmark outputs at root scale."
+    notes: "This package is implemented on the active branch and runs the validation program on real measured continuum and line-response series with null diagnostics and literature-facing benchmark outputs."
   - id: "0042"
     title: "Root Optimization Orchestration and Objective Completion"
     summary: "Implement literal Ray Tune, Optuna, and Ax optimization against the full root objective surface with immutable benchmark and hold-out guards."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
@@ -581,11 +581,11 @@ projects:
       review: null
     dependencies: ["0038", "0040", "0041", "0018", "0034"]
     tags: [optimization, ray, optuna, ax, objectives]
-    notes: "This package replaces scaffolded candidate scoring with literal optimizer backends, Pareto objectives, guarded mutation surfaces, and experiment dashboards."
+    notes: "This package is implemented on the active branch and replaces scaffolded candidate scoring with literal optimizer backends, Pareto objectives, guarded mutation surfaces, and experiment dashboards."
   - id: "0043"
     title: "Hold-Out Discovery and CLAGN Real-Data Analysis"
     summary: "Run the discovery and CLAGN program on the frozen real hold-out pool using validated pipeline outputs rather than authored fixture scores."
-    status: conceived
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
@@ -594,11 +594,11 @@ projects:
       review: null
     dependencies: ["0038", "0040", "0041", "0042", "0019", "0035"]
     tags: [discovery, clagn, hold-out, anomaly]
-    notes: "This package closes the fixture-authored discovery gap with validated anomaly scoring, transition analysis, and candidate evidence on real hold-out data."
+    notes: "This package is implemented on the active branch and closes the fixture-authored discovery gap with validated anomaly scoring, transition analysis, and candidate evidence on real hold-out data."
   - id: "0044"
     title: "Publication-Grade Release, Analyst Workbench, and Archive Assembly"
     summary: "Assemble the literal root-plan release outputs, analyst workbench views, publication artifacts, and provenance-complete benchmark and audio archives."
-    status: conceived
+    status: committed
     priority: high
     release: "v1.0.0"
     files:
@@ -607,11 +607,11 @@ projects:
       review: null
     dependencies: ["0038", "0041", "0042", "0043", "0020", "0036", "0037"]
     tags: [release, publication, review, archive]
-    notes: "This package closes the methods-paper, catalog-paper, archive, and analyst-review deliverables required by the root authority documents."
+    notes: "This package is implemented on the active branch and closes the methods-paper, catalog-paper, archive, and analyst-review deliverables required by the root authority documents."
   - id: "0045"
     title: "Literal Root Authority Conformance Audit and Final Readiness Gate"
     summary: "Implement the final root-authority conformance audit that fails unless the implementation, deliverables, and readiness state satisfy the literal root requirements."
-    status: conceived
+    status: committed
     priority: high
     release: "v1.0.0"
     files:
@@ -620,11 +620,11 @@ projects:
       review: null
     dependencies: ["0038", "0041", "0042", "0043", "0044"]
     tags: [audit, conformance, readiness, governance]
-    notes: "This gate rejects count-only or placeholder compliance and is the sole acceptable root-closeout decision point."
+    notes: "This gate is implemented on the active branch, rejects count-only or placeholder compliance, and is the sole acceptable root-closeout decision point."
   - id: "0046"
     title: "Adversarial Root Authority Gap-Closure Plan"
     summary: "Define the strict remediation plan that addresses the latest adversarial findings and makes literal root-authority satisfaction the only acceptable completion state."
-    status: planned
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
@@ -633,11 +633,11 @@ projects:
       review: null
     dependencies: ["0038", "0039", "0040", "0041", "0042", "0043", "0044", "0045"]
     tags: [playbook, remediation, adversarial-review, root-authority]
-    notes: "This playbook supersedes any ambiguous interpretation of 0038 by mapping the current adversarial findings one-to-one to literal implementation, deliverable, and readiness obligations."
+    notes: "This playbook is committed and maps the adversarial findings one-to-one to literal implementation, deliverable, and readiness obligations."
   - id: "0047"
     title: "Literal Root Authority Final Conformance Remediation"
     summary: "Define the final remediation sequence required after the latest adversarial review to close the remaining literal root-authority gaps in data modeling, corpus scope, continuum validation, optimization, discovery outputs, and publication deliverables."
-    status: implementing
+    status: committed
     priority: high
     release: "v0.3.0"
     files:
@@ -646,7 +646,7 @@ projects:
       review: null
     dependencies: ["0046", "0039", "0040", "0041", "0042", "0043", "0044", "0045"]
     tags: [playbook, remediation, adversarial-review, root-authority, conformance]
-    notes: "This package is the controlling response to the current adversarial findings and is acceptable only when the implementation, deliverables, and readiness state satisfy the root authority documents literally."
+    notes: "This package is committed on the active branch and serves as the controlling response to the current adversarial findings until the branch is integrated."
 ```
 ## Authority Notes
 
