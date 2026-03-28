@@ -29,6 +29,13 @@ ln -sf "$(command -v gfortran)" "$RM_LITERAL_PREFIX/bin/gfortran"
 ln -sf "$(command -v gfortran)" "$RM_LITERAL_PREFIX/bin/f95"
 ln -sf "$(command -v gfortran)" "$RM_LITERAL_PREFIX/bin/f77"
 ln -sf "$(command -v gcc)" "$RM_LITERAL_PREFIX/bin/gcc"
+ln -sf "$(command -v gcc)" "$RM_LITERAL_PREFIX/bin/cc"
+ln -sf "$(command -v gcc)" "$RM_LITERAL_PREFIX/bin/x86_64-conda-linux-gnu-cc"
+if command -v g++ >/dev/null 2>&1; then
+  ln -sf "$(command -v g++)" "$RM_LITERAL_PREFIX/bin/c++"
+  ln -sf "$(command -v g++)" "$RM_LITERAL_PREFIX/bin/x86_64-conda-linux-gnu-c++"
+fi
+ln -sf "$(command -v gfortran)" "$RM_LITERAL_PREFIX/bin/x86_64-conda-linux-gnu-gfortran"
 
 cat > "$PKGCONFIG_DIR/hwloc.pc" <<PC
 prefix=$RM_LITERAL_PREFIX
@@ -61,6 +68,9 @@ export PKG_CONFIG_PATH="$PKGCONFIG_DIR${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 export CC=mpicc
 export FC=gfortran
 export F77=f77
+export OMPI_CC=x86_64-conda-linux-gnu-cc
+export OMPI_CXX=x86_64-conda-linux-gnu-c++
+export OMPI_FC=x86_64-conda-linux-gnu-gfortran
 
 "$RM_LITERAL_PREFIX/bin/python" -m pip install --no-build-isolation --no-cache-dir \
   git+https://github.com/nye17/javelin.git
