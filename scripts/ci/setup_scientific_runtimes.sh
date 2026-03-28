@@ -78,7 +78,7 @@ export OMPI_FC=x86_64-conda-linux-gnu-gfortran
   git+https://github.com/LiyrAstroph/MICA2.git
 
 cd "$ROOT"
-uv venv .uv-pypetal --python "$RM_LITERAL_PREFIX/bin/python"
+uv venv .uv-pypetal --python "$RM_LITERAL_PREFIX/bin/python" --seed
 ./.uv-pypetal/bin/python -m pip install --upgrade pip
 ./.uv-pypetal/bin/python -m pip install \
   numpy==1.22.4 \
@@ -86,6 +86,6 @@ uv venv .uv-pypetal --python "$RM_LITERAL_PREFIX/bin/python"
   pyzdcf \
   PyROA
 
-uv venv .uv-litmus --python "$RM_LITERAL_PREFIX/bin/python"
+uv venv .uv-litmus --python "$RM_LITERAL_PREFIX/bin/python" --seed
 ./.uv-litmus/bin/python -m pip install --upgrade pip
 ./.uv-litmus/bin/python -m pip install litmus-rm
