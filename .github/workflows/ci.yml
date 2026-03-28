@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint, Typecheck, Test
+    name: Lint and Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .[dev]
+          python -m pip install -e .[dev,scientific]
 
       - name: Lint
         run: python -m ruff check .
@@ -40,5 +40,53 @@ jobs:
       - name: Typecheck
         run: python -m mypy src tests
 
+  scientific-validation:
+    name: Scientific Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          init-shell: bash
+          cache-environment: true
+          cache-downloads: true
+
+      - name: Install system toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gfortran \
+            pkg-config \
+            libopenblas-dev \
+            liblapacke-dev \
+            libgsl-dev \
+            libhwloc-dev \
+            openmpi-bin \
+            libopenmpi-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+          python -m pip install -e .[dev,scientific]
+
+      - name: Setup scientific runtimes
+        run: bash scripts/ci/setup_scientific_runtimes.sh
+
       - name: Test
         run: python -m pytest
+
+      - name: Workflow dry-run
+        run: snakemake --snakefile workflows/Snakefile --dry-run
