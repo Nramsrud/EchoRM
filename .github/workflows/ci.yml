@@ -81,6 +81,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install uv
           python -m pip install -e .[dev,scientific]
+          python -m pip install git+https://github.com/legolason/PyQSOFit.git
 
       - name: Setup scientific runtimes
         run: bash scripts/ci/setup_scientific_runtimes.sh

@@ -25,7 +25,6 @@ scientific = [
   "optuna>=3,<5",
   "ray[tune]>=2.30,<3",
   "ax-platform>=0.4,<2",
-  "pyqsofit>=1.3,<3",
   "pyzdcf>=1,<2",
   "eztao>=0.4,<1",
   "celerite2>=0.3,<1",
@@ -45,6 +44,21 @@ select = ["B", "E", "F", "I", "UP"]
 python_version = "3.12"
 files = ["src", "tests"]
 strict = true
+
+[[tool.mypy.overrides]]
+module = [
+  "astropy.*",
+  "astroquery.*",
+  "ax.*",
+  "celerite2",
+  "eztao.*",
+  "optuna",
+  "pyqsofit.*",
+  "pyzdcf",
+  "ray",
+  "ray.*",
+]
+ignore_missing_imports = true
 
 [tool.setuptools]
 package-dir = { "" = "src" }
