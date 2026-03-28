@@ -11,7 +11,7 @@ import numpy as np
 from .base import LagRun, TimeSeries, build_pair_id
 
 try:
-    from pyzdcf import pyzdcf  # type: ignore[import-untyped]
+    from pyzdcf import pyzdcf
 except ImportError:  # pragma: no cover - runtime dependent
     pyzdcf = None
 

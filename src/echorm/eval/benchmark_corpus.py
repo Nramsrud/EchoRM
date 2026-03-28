@@ -67,7 +67,7 @@ from ..spectra.preprocess import ProcessedSpectrum, preprocess_spectrum
 from ..spectra.pyqsofit import fit_pyqsofit_decomposition
 
 try:
-    from astropy.io import fits  # type: ignore[import-untyped]
+    from astropy.io import fits
 except ImportError:  # pragma: no cover
     fits = None
 

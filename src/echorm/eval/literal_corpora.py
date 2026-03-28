@@ -22,13 +22,13 @@ from ..schemas import OBJECT_MANIFEST_SCHEMA, PHOTOMETRY_SCHEMA, SPECTRAL_EPOCH_
 from .benchmark_corpus import BenchmarkObject, DiscoveryHoldoutRecord
 
 try:
-    from astroquery.vizier import Vizier  # type: ignore[import-untyped]
+    from astroquery.vizier import Vizier
 except ImportError:
     Vizier = None
 
 try:
-    from astropy.io import fits  # type: ignore[import-untyped]
-    from astropy.time import Time  # type: ignore[import-untyped]
+    from astropy.io import fits
+    from astropy.time import Time
 except ImportError:  # pragma: no cover
     Time = None
     fits = None

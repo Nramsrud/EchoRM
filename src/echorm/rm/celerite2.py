@@ -10,7 +10,7 @@ import numpy as np
 from .base import LagRun, TimeSeries
 
 try:
-    from celerite2 import GaussianProcess, terms  # type: ignore[import-untyped]
+    from celerite2 import GaussianProcess, terms
 except ImportError:  # pragma: no cover - runtime dependent
     GaussianProcess = None
     terms = None

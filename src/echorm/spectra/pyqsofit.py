@@ -12,7 +12,7 @@ from .continuum import ContinuumFit, _build_fit
 from .preprocess import ProcessedSpectrum
 
 try:
-    from pyqsofit.PyQSOFit import QSOFit  # type: ignore[import-untyped]
+    from pyqsofit.PyQSOFit import QSOFit
 except ImportError:  # pragma: no cover - runtime dependent
     QSOFit = None
 

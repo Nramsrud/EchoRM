@@ -9,7 +9,7 @@ import numpy as np
 from .base import LagRun, TimeSeries
 
 try:
-    from eztao.ts.carma_fit import drw_fit  # type: ignore[import-untyped]
+    from eztao.ts.carma_fit import drw_fit
 except ImportError:  # pragma: no cover - import availability depends on runtime
     drw_fit = None
 
