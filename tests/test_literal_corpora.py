@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from echorm.eval.benchmark_corpus import BenchmarkObject
-from echorm.eval.literal_corpora import build_interpolated_series, build_measured_series
+from echorm.eval.literal_corpora import (
+    _download_ztf_lightcurve,
+    _read_ztf_rows,
+    build_interpolated_series,
+    build_measured_series,
+)
 
 
 def _benchmark_object() -> BenchmarkObject:
@@ -116,3 +123,29 @@ def test_build_interpolated_series_interpolates_onto_continuum_cadence() -> None
             149.60784313725492,
         )
     )
+
+
+def test_ztf_download_falls_back_to_offline_rows_on_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise_timeout(*args: object, **kwargs: object) -> object:
+        raise TimeoutError("simulated timeout")
+
+    monkeypatch.setattr("urllib.request.urlopen", _raise_timeout)
+
+    raw_path, used_offline_fallback = _download_ztf_lightcurve(
+        tmp_path,
+        object_uid="ci-fallback-target",
+        ra_deg=214.0,
+        dec_deg=53.0,
+        fallback_split_mjd=59000.0,
+    )
+
+    rows = _read_ztf_rows(raw_path)
+
+    assert used_offline_fallback is True
+    assert raw_path.exists()
+    assert len(rows) == 8
+    assert min(float(str(row["mjd"])) for row in rows) < 59000.0
+    assert max(float(str(row["mjd"])) for row in rows) > 59000.0
