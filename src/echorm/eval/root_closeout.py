@@ -62,16 +62,21 @@ from .readiness import (
 from .validation import ValidationResult
 
 try:
-    import optuna
+    import optuna as _optuna
 except ImportError:  # pragma: no cover
-    optuna = None  # type: ignore[assignment]
+    optuna = None
+else:
+    optuna = _optuna
 
 try:
-    import ray
-    from ray import tune
+    import ray as _ray
+    from ray import tune as _tune
 except ImportError:  # pragma: no cover
-    ray = None  # type: ignore[assignment]
-    tune = None  # type: ignore[assignment]
+    ray = None
+    tune = None
+else:
+    ray = _ray
+    tune = _tune
 
 try:
     from ax.service.ax_client import AxClient as _AxClient

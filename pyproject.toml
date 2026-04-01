@@ -52,11 +52,11 @@ module = [
   "ax.*",
   "celerite2",
   "eztao.*",
+  "numpy",
   "optuna",
   "pyqsofit.*",
   "pyzdcf",
   "ray",
-  "ray.*",
 ]
 ignore_missing_imports = true
 
