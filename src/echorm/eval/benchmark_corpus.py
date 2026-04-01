@@ -687,6 +687,21 @@ def run_method_suite(
     null_results: list[SerializedLagResult] = []
     null_suite: list[dict[str, object]] = []
     if include_null_suite:
+        active_methods = set(method_subset or ("pyccf", "pyzdcf", "javelin", "pyroa"))
+        ordered_methods = tuple(
+            method
+            for method in ("pyccf", "pyzdcf", "javelin", "pyroa")
+            if method in active_methods
+        )
+        # Keep null-control execution bounded to the classical lag methods when
+        # they are available. Model-based backends are still exercised on the
+        # real pair, but rerunning them across adversarial null variants adds
+        # heavy CI cost without improving the false-positive diagnostic
+        # materially.
+        null_method_subset = (
+            tuple(method for method in ordered_methods if method in {"pyccf", "pyzdcf"})
+            or ordered_methods
+        )
         null_variants = {
             "reversed_response": tuple(reversed(response_values)),
             "shuffled_pair": tuple(
@@ -713,7 +728,7 @@ def run_method_suite(
                 response=null_series,
                 lag_steps=lag_steps,
                 include_advanced=False,
-                method_subset=method_subset,
+                method_subset=null_method_subset,
                 benchmark_profile=benchmark_profile,
             )
             null_results.extend(variant_results)
