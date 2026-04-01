@@ -16,6 +16,8 @@
 
 - Default implementation stack is Python 3.12.
 - Quality commands are `python3 -m pytest`, `python3 -m ruff check .`, and `python3 -m mypy src tests`.
+- The local acceptance gate before every commit and push is `bash scripts/ci/run_local_scientific_validation.sh`.
+- Install the committed local git hooks with `bash scripts/ci/install_git_hooks.sh`.
 - Large raw data, rendered audio, and other generated artifacts belong in dedicated artifact directories rather than normal versioned content.
 
 ## Scientific Rigor Requirements

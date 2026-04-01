@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .[dev,scientific]
+          python -m pip install -e .[dev]
 
       - name: Lint
         run: python -m ruff check .
@@ -40,8 +41,44 @@ jobs:
       - name: Typecheck
         run: python -m mypy src tests
 
+  pr-essentials:
+    name: PR Essentials
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Smoke Tests
+        run: |
+          python -m pytest \
+            tests/test_package.py \
+            tests/test_repository_skeleton.py \
+            tests/test_public_artifact_rules.py \
+            tests/test_schemas.py \
+            tests/test_workflow_stack.py \
+            tests/test_local_validation_gate.py
+
+      - name: Workflow dry-run
+        run: snakemake --snakefile workflows/Snakefile --dry-run
+
   scientific-validation:
     name: Scientific Validation
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     needs: quality
