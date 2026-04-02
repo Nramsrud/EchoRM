@@ -42,6 +42,14 @@
 - Claims-boundary coverage: satisfied. The plan preserves repository-local scope, benchmark linkage, manual review, and the real-data-rerun boundary.
 - Ambiguity check: satisfied. The plan leaves no undocumented fallback path for first-pass admission or ordering.
 
+## Implementation Review Findings
+
+- Admission behavior: satisfied. The implementation now admits every supported changing-state transition into the primary wave and keeps same-state precursor context deferred.
+- Directionality handling: satisfied. Signed lag-change and line-response fields remain explicit in candidate records and reports, but they no longer block first-pass admission.
+- Ordering behavior: satisfied. Review order is deterministic and uses tracked review priority, rank score, benchmark links, and object identifier fields.
+- Canonical rerun check: satisfied. On the repaired canonical artifact root, the first-pass rerun now produces `5` primary-wave supported transitions and `2` deferred same-state precursor cases, which matches the promoted transition-support record.
+- Blocking implementation findings: none.
+
 ## Review Outcome
 
 The spec and plan are unambiguous and scientifically rigorous. They correct first-pass admission so the review surface follows the repaired transition-evidence semantics, avoid hold-out retuning, preserve deterministic governance, and keep all broader scientific interpretation behind manual review and real-data reruns.

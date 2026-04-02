@@ -20,16 +20,12 @@ from .broad_validation import (
 from .discovery_snapshot import validate_promoted_discovery_snapshot
 from .readiness import ToolStatus, VerificationCheck, _write_json, detect_tool_statuses
 
-PRIMARY_WAVE_TRANSITION_REQUIRED = True
-PRIMARY_WAVE_LAG_STATE_CHANGE_MIN = 1.2
-PRIMARY_WAVE_LINE_RESPONSE_RATIO_MAX = 0.55
-PRIMARY_WAVE_RANK_SCORE_MIN = 0.76
+PRIMARY_WAVE_TRANSITION_SUPPORTED_REQUIRED = True
+PRIMARY_WAVE_TRANSITION_DETECTED_REQUIRED = True
 
 PRIMARY_WAVE_RULE: JSONDict = {
-    "transition_detected": PRIMARY_WAVE_TRANSITION_REQUIRED,
-    "lag_state_change_min": PRIMARY_WAVE_LAG_STATE_CHANGE_MIN,
-    "line_response_ratio_max": PRIMARY_WAVE_LINE_RESPONSE_RATIO_MAX,
-    "rank_score_min": PRIMARY_WAVE_RANK_SCORE_MIN,
+    "state_transition_supported": PRIMARY_WAVE_TRANSITION_SUPPORTED_REQUIRED,
+    "transition_detected": PRIMARY_WAVE_TRANSITION_DETECTED_REQUIRED,
 }
 
 BENCHMARK_LINK_TO_ANCHORS: dict[str, tuple[str, ...]] = {
@@ -38,6 +34,12 @@ BENCHMARK_LINK_TO_ANCHORS: dict[str, tuple[str, ...]] = {
     "continuum_validation": ("continuum-behavior",),
     "efficacy_benchmark": ("efficacy-interpretability",),
     "root_authority_audit": ("root-authority-gate",),
+}
+
+REVIEW_PRIORITY_ORDER = {
+    "high": 0,
+    "medium": 1,
+    "low": 2,
 }
 
 
@@ -181,8 +183,10 @@ def _review_report(
         "pre/post state-window coverage.\n"
         "- Same-state aligned candidates remain explicit as precursor-only context "
         "and cannot satisfy the transition-led wave rule.\n"
-        "- Primary wave is restricted to transition-led candidates that satisfy the "
-        "declared tracked-field rule.\n"
+        "- Primary wave is restricted to promoted candidates with supported "
+        "changing-state evidence and recorded transition detection.\n"
+        "- Review order is deterministic and uses tracked review priority, rank "
+        "score, benchmark links, and object identifier fields.\n"
         "- Every candidate remains under a real-data rerun requirement before "
         "broader scientific interpretation.\n\n"
         "## Anchors\n\n"
@@ -329,8 +333,8 @@ def _build_anchor_records(
 
 def _primary_wave_reason(candidate: Mapping[str, object]) -> str:
     return (
-        "Candidate satisfies the transition-led primary-wave rule and should "
-        "receive manual review before a real-data rerun."
+        "Candidate satisfies the transition-supported primary-wave rule and "
+        "should receive manual review before a real-data rerun."
     )
 
 
@@ -339,9 +343,6 @@ def _deferred_reason(
     state_transition_supported: bool,
     transition_alignment_status: str,
     transition_detected: bool,
-    lag_state_change: float,
-    line_response_ratio: float,
-    rank_score: float,
 ) -> str:
     if not state_transition_supported:
         return (
@@ -354,16 +355,31 @@ def _deferred_reason(
             "Deferred because the tracked fixture-bounded evidence does not record "
             "a transition detection."
         )
-    if lag_state_change < PRIMARY_WAVE_LAG_STATE_CHANGE_MIN:
-        return "Deferred because lag-state change is below the primary-wave minimum."
-    if line_response_ratio > PRIMARY_WAVE_LINE_RESPONSE_RATIO_MAX:
-        return (
-            "Deferred because the line-response ratio remains above the primary-wave "
-            "maximum."
-        )
-    if rank_score < PRIMARY_WAVE_RANK_SCORE_MIN:
-        return "Deferred because the rank score is below the primary-wave minimum."
     return "Deferred because the candidate does not satisfy the declared rule set."
+
+
+def _review_priority_rank(value: str) -> int:
+    return REVIEW_PRIORITY_ORDER.get(value, len(REVIEW_PRIORITY_ORDER))
+
+
+def _state_transition_supported(
+    *,
+    candidate: Mapping[str, object],
+    transition: Mapping[str, object],
+    dataset_completeness: Mapping[str, object],
+    transition_detected: bool,
+) -> bool:
+    transition_value = transition.get("state_transition_supported")
+    if isinstance(transition_value, bool):
+        return transition_value
+    completeness_value = dataset_completeness.get("state_transition_supported")
+    if isinstance(completeness_value, bool):
+        return completeness_value
+
+    # Historical fixture artifacts may predate explicit transition-support fields.
+    return transition_detected and str(candidate.get("anomaly_category", "")) == (
+        "clagn_transition"
+    )
 
 
 def _promoted_candidate_ids(promoted_snapshot: Mapping[str, object]) -> tuple[str, ...]:
@@ -407,10 +423,11 @@ def _build_candidate_reviews(
         lag_state_change = _float_value(evidence_bundle, "lag_state_change")
         line_response_ratio = _float_value(evidence_bundle, "line_response_ratio")
         transition_detected = _bool_value(transition, "transition_detected")
-        state_transition_supported = _bool_value(
-            transition,
-            "state_transition_supported",
-            _bool_value(dataset_completeness, "state_transition_supported"),
+        state_transition_supported = _state_transition_supported(
+            candidate=candidate,
+            transition=transition,
+            dataset_completeness=dataset_completeness,
+            transition_detected=transition_detected,
         )
         transition_alignment_status = str(
             transition.get(
@@ -418,12 +435,7 @@ def _build_candidate_reviews(
                 dataset_completeness.get("state_window_alignment", "unknown"),
             )
         )
-        primary_wave = (
-            transition_detected
-            and lag_state_change >= PRIMARY_WAVE_LAG_STATE_CHANGE_MIN
-            and line_response_ratio <= PRIMARY_WAVE_LINE_RESPONSE_RATIO_MAX
-            and rank_score >= PRIMARY_WAVE_RANK_SCORE_MIN
-        )
+        primary_wave = state_transition_supported and transition_detected
         reviews.append(
             {
                 "object_uid": str(candidate["object_uid"]),
@@ -448,9 +460,6 @@ def _build_candidate_reviews(
                         state_transition_supported=state_transition_supported,
                         transition_alignment_status=transition_alignment_status,
                         transition_detected=transition_detected,
-                        lag_state_change=lag_state_change,
-                        line_response_ratio=line_response_ratio,
-                        rank_score=rank_score,
                     )
                 ),
                 "rank_score": rank_score,
@@ -485,7 +494,9 @@ def _build_candidate_reviews(
     reviews.sort(
         key=lambda item: (
             0 if str(item["review_wave"]) == "primary" else 1,
+            _review_priority_rank(str(item["review_priority"])),
             -_float_value(item, "rank_score"),
+            tuple(sorted(_string_list(item, "benchmark_links"))),
             str(item["object_uid"]),
         )
     )
@@ -618,6 +629,12 @@ def materialize_first_pass_review_package(
         "promoted_snapshot_id": str(promoted_snapshot["promoted_snapshot_id"]),
         "primary_wave_rule": dict(PRIMARY_WAVE_RULE),
         "deferred_wave_rule": "all remaining tracked candidates",
+        "ordering_fields": [
+            "review_priority",
+            "rank_score",
+            "benchmark_links",
+            "object_uid",
+        ],
         "primary_wave_candidate_ids": list(primary_ids),
         "deferred_wave_candidate_ids": list(deferred_ids),
         "universal_requirements": [

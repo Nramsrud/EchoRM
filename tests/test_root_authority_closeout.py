@@ -129,6 +129,44 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
         + first_pass_payload["summary"]["deferred_wave_count"]
         == first_pass_payload["summary"]["candidate_count"]
     )
+    primary_candidates = [
+        candidate
+        for candidate in first_pass_candidates
+        if candidate["review_wave"] == "primary"
+    ]
+    deferred_candidates = [
+        candidate
+        for candidate in first_pass_candidates
+        if candidate["review_wave"] == "deferred"
+    ]
+    assert first_pass_payload["strategy"]["primary_wave_rule"] == {
+        "state_transition_supported": True,
+        "transition_detected": True,
+    }
+    assert first_pass_payload["strategy"]["ordering_fields"] == [
+        "review_priority",
+        "rank_score",
+        "benchmark_links",
+        "object_uid",
+    ]
+    assert all(
+        candidate["state_transition_supported"] is True
+        and candidate["transition_detected"] is True
+        for candidate in primary_candidates
+    )
+    assert all(
+        candidate["state_transition_supported"] is False
+        or candidate["transition_detected"] is False
+        for candidate in deferred_candidates
+    )
+    assert (
+        first_pass_payload["summary"]["primary_wave_count"]
+        == len(primary_candidates)
+    )
+    assert (
+        first_pass_payload["summary"]["deferred_wave_count"]
+        == len(deferred_candidates)
+    )
     assert all(
         candidate["real_data_rerun_required"] is True
         for candidate in first_pass_candidates
