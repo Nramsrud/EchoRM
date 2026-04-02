@@ -22,8 +22,8 @@ releases:
     name: "Discovery, Optimization, and Scale-Out"
     status: active
     summary: "Integrate the repository-local root-closeout surface beyond the benchmark gate: advanced rigor, corpus governance, optimization, discovery analysis, analyst review, and release packaging."
-    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046", "0047", "0048"]
-    notes: "The root-closeout package surface is integrated on main. Current readiness, discovery, release, and first-pass review outputs remain repository-local and bounded by the evidence labels, limitations, and hold-out rules recorded in their generated packages."
+    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046", "0047", "0048", "0049"]
+    notes: "The root-closeout package surface is integrated on main. Current readiness, discovery, release, and first-pass review outputs remain repository-local and bounded by the evidence labels, limitations, hold-out rules, and any promoted discovery-snapshot freeze recorded in their generated packages."
   - version: "v1.0.0"
     name: "Open Science Release"
     status: planning
@@ -660,6 +660,19 @@ projects:
     dependencies: ["0026", "0027", "0028", "0029", "0043", "0045"]
     tags: [analysis, discovery, governance, review, hold-out]
     notes: "Implemented through repository-local first_pass_review materialization. The package preserves the fixture-bounded claims boundary and the requirement for real-data reruns."
+  - id: "0049"
+    title: "Canonical Discovery Snapshot Promotion and Freeze"
+    summary: "Freeze and promote one repository-local discovery-analysis snapshot as the canonical input for first-pass review and downstream scientific interpretation."
+    status: active
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0049-canonical-discovery-snapshot-promotion-freeze.md
+      plan: ark/plans/0049-canonical-discovery-snapshot-promotion-freeze.md
+      review: ark/playbooks/0049-canonical-discovery-snapshot-promotion-freeze.md
+    dependencies: ["0040", "0043", "0045", "0048"]
+    tags: [discovery, governance, provenance, freeze, analysis]
+    notes: "This package closes the artifact-root ambiguity exposed by the first pass by requiring one promoted canonical discovery snapshot before downstream scientific interpretation is reused."
 ```
 ## Authority Notes
 

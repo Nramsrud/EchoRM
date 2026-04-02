@@ -51,6 +51,7 @@ def test_repository_local_package_specs_preserve_bounded_scope() -> None:
         "ark/specs/0044-publication-grade-release-analyst-workbench-archive-assembly.md",
         "ark/specs/0045-literal-root-authority-conformance-audit-final-readiness-gate.md",
         "ark/specs/0048-benchmark-governed-first-pass-review.md",
+        "ark/specs/0049-canonical-discovery-snapshot-promotion-freeze.md",
     ):
         assert "repository-local" in _read(path)
 
@@ -62,3 +63,18 @@ def test_first_pass_project_entry_has_spec_plan_and_review() -> None:
     assert "ark/specs/0048-benchmark-governed-first-pass-review.md" in projectlist
     assert "ark/plans/0048-benchmark-governed-first-pass-review.md" in projectlist
     assert "ark/playbooks/0048-benchmark-governed-first-pass-review.md" in projectlist
+
+
+def test_canonical_snapshot_project_entry_has_spec_and_review() -> None:
+    projectlist = _read("ark/projectlist.md")
+    review_0049 = _read(
+        "ark/playbooks/0049-canonical-discovery-snapshot-promotion-freeze.md"
+    )
+    plan_0049 = _read("ark/plans/0049-canonical-discovery-snapshot-promotion-freeze.md")
+
+    assert 'id: "0049"' in projectlist
+    assert "ark/specs/0049-canonical-discovery-snapshot-promotion-freeze.md" in projectlist
+    assert "ark/plans/0049-canonical-discovery-snapshot-promotion-freeze.md" in projectlist
+    assert "ark/playbooks/0049-canonical-discovery-snapshot-promotion-freeze.md" in projectlist
+    assert "Blocking Findings" in review_0049
+    assert "divergence" in plan_0049
