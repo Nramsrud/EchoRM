@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 
+from echorm.eval.discovery_snapshot import materialize_discovery_snapshot_package
 from echorm.eval.first_pass import materialize_first_pass_review_package
 from echorm.eval.readiness import ToolStatus, VerificationCheck
 
@@ -21,10 +22,23 @@ def test_first_pass_review_materializes_deterministic_waves(tmp_path: Path) -> N
         "silver_validation",
         "continuum_validation",
         "efficacy_benchmark",
+        "corpus_scaleout",
         "discovery_analysis",
         "root_authority_audit",
     ):
         _copy_run(source_root, tmp_path, run_id)
+
+    materialize_discovery_snapshot_package(
+        repo_root=ROOT,
+        artifact_root=tmp_path,
+        verification=(
+            VerificationCheck("pytest", ("python3", "-m", "pytest"), True, "ok"),
+        ),
+        tools=(
+            ToolStatus("python3", True, "/usr/bin/python3"),
+            ToolStatus("git", True, "/usr/bin/git"),
+        ),
+    )
 
     index_path = materialize_first_pass_review_package(
         repo_root=ROOT,
@@ -45,6 +59,11 @@ def test_first_pass_review_materializes_deterministic_waves(tmp_path: Path) -> N
     assert payload["summary"]["primary_wave_count"] == 3
     assert payload["summary"]["deferred_wave_count"] == 2
     assert payload["summary"]["real_data_rerun_required_count"] == 5
+    assert payload["promoted_snapshot"]["snapshot_run_id"] == "discovery_snapshot"
+    assert payload["promoted_snapshot"]["promoted_snapshot_id"] == (
+        "discovery_analysis-discovery_snapshot"
+    )
+    assert len(payload["promoted_snapshot"]["candidate_inventory_digest"]) == 16
 
     candidates = payload["candidates"]
     assert isinstance(candidates, list)
@@ -62,6 +81,7 @@ def test_first_pass_review_materializes_deterministic_waves(tmp_path: Path) -> N
         encoding="utf-8"
     )
     assert "real-data rerun" in report
+    assert "Promoted snapshot id" in report
     assert "fixture-bounded" in report
 
     candidate_summary = (

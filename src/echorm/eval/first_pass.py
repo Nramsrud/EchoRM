@@ -17,6 +17,7 @@ from .broad_validation import (
     _update_root_index,
     _write_markdown,
 )
+from .discovery_snapshot import validate_promoted_discovery_snapshot
 from .readiness import ToolStatus, VerificationCheck, _write_json, detect_tool_statuses
 
 PRIMARY_WAVE_TRANSITION_REQUIRED = True
@@ -143,6 +144,7 @@ def _review_report(
     deferred_ids: tuple[str, ...],
 ) -> str:
     summary = _mapping_value(payload, "summary")
+    promoted_snapshot = _mapping_value(payload, "promoted_snapshot")
     anchor_lines = "\n".join(
         (
             f"- {anchor['label']} ({anchor['source_run']}): {anchor['role']}; "
@@ -165,7 +167,11 @@ def _review_report(
         f"- Primary wave count: {summary['primary_wave_count']}\n"
         f"- Deferred wave count: {summary['deferred_wave_count']}\n"
         f"- Real-data rerun required count: "
-        f"{summary['real_data_rerun_required_count']}\n\n"
+        f"{summary['real_data_rerun_required_count']}\n"
+        f"- Promoted snapshot id: {promoted_snapshot['promoted_snapshot_id']}\n"
+        "- Promoted inventory digest: "
+        f"{promoted_snapshot['candidate_inventory_digest']}\n"
+        f"- Promoted order digest: {promoted_snapshot['candidate_order_digest']}\n\n"
         "## Strategy\n\n"
         "- Anchor calibration precedes hold-out interpretation.\n"
         "- Primary wave is restricted to transition-led candidates that satisfy the "
@@ -441,6 +447,7 @@ def materialize_first_pass_review_package(
     artifact_root: Path,
     run_id: str = "first_pass_review",
     profile: str = "first_pass_review",
+    snapshot_run_id: str = "discovery_snapshot",
     verification: tuple[VerificationCheck, ...] | None = None,
     tools: tuple[ToolStatus, ...] | None = None,
 ) -> Path:
@@ -454,8 +461,15 @@ def materialize_first_pass_review_package(
     silver_payload = _load_required_run(artifact_root, "silver_validation")
     continuum_payload = _load_required_run(artifact_root, "continuum_validation")
     efficacy_payload = _load_required_run(artifact_root, "efficacy_benchmark")
-    discovery_payload = _load_required_run(artifact_root, "discovery_analysis")
     audit_payload = _load_required_run(artifact_root, "root_authority_audit")
+    promoted_snapshot = validate_promoted_discovery_snapshot(
+        artifact_root=artifact_root,
+        snapshot_run_id=snapshot_run_id,
+    )
+    discovery_payload = _load_required_run(
+        artifact_root,
+        str(promoted_snapshot["source_run_id"]),
+    )
 
     anchors = _build_anchor_records(
         gold_payload=gold_payload,
@@ -521,11 +535,23 @@ def materialize_first_pass_review_package(
     )
     payload["anchors"] = anchors
     payload["candidates"] = candidates
+    payload["promoted_snapshot"] = {
+        "snapshot_run_id": snapshot_run_id,
+        "promoted_snapshot_id": str(promoted_snapshot["promoted_snapshot_id"]),
+        "source_run_id": str(promoted_snapshot["source_run_id"]),
+        "source_path": str(promoted_snapshot["source_path"]),
+        "source_reference": str(promoted_snapshot["source_reference"]),
+        "candidate_inventory_digest": str(
+            promoted_snapshot["candidate_inventory_digest"]
+        ),
+        "candidate_order_digest": str(promoted_snapshot["candidate_order_digest"]),
+    }
     payload["strategy"] = {
         "anchor_phase": {
             "phase_id": "anchor_calibration",
             "anchor_ids": [str(anchor["anchor_id"]) for anchor in anchors],
         },
+        "promoted_snapshot_id": str(promoted_snapshot["promoted_snapshot_id"]),
         "primary_wave_rule": dict(PRIMARY_WAVE_RULE),
         "deferred_wave_rule": "all remaining tracked candidates",
         "primary_wave_candidate_ids": list(primary_ids),

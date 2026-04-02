@@ -11,6 +11,7 @@ from echorm.eval.broad_validation import (
     materialize_silver_validation_package,
 )
 from echorm.eval.claims_audit import materialize_claims_audit
+from echorm.eval.discovery_snapshot import materialize_discovery_snapshot_package
 from echorm.eval.first_pass import materialize_first_pass_review_package
 from echorm.eval.readiness import ToolStatus, VerificationCheck
 from echorm.eval.root_closeout import (
@@ -82,6 +83,12 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
         verification=verification,
         tools=tools,
     )
+    materialize_discovery_snapshot_package(
+        repo_root=ROOT,
+        artifact_root=artifact_root,
+        verification=verification,
+        tools=tools,
+    )
     materialize_optimization_closeout_package(artifact_root=artifact_root)
     materialize_release_closeout_package(artifact_root=artifact_root)
     audit_path = materialize_root_authority_audit(artifact_root=artifact_root)
@@ -98,6 +105,9 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
     assert summary["condition_count"] >= 7
 
     first_pass_payload = json.loads(first_pass_path.read_text(encoding="utf-8"))
+    promoted_snapshot = first_pass_payload["promoted_snapshot"]
+    assert promoted_snapshot["snapshot_run_id"] == "discovery_snapshot"
+    assert promoted_snapshot["source_run_id"] == "discovery_analysis"
     first_pass_candidates = first_pass_payload["candidates"]
     assert isinstance(first_pass_candidates, list)
     primary_candidates = [

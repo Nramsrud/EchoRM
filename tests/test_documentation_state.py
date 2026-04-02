@@ -70,11 +70,22 @@ def test_canonical_snapshot_project_entry_has_spec_and_review() -> None:
     review_0049 = _read(
         "ark/playbooks/0049-canonical-discovery-snapshot-promotion-freeze.md"
     )
-    plan_0049 = _read("ark/plans/0049-canonical-discovery-snapshot-promotion-freeze.md")
+    plan_0049 = _read(
+        "ark/plans/0049-canonical-discovery-snapshot-promotion-freeze.md"
+    )
 
     assert 'id: "0049"' in projectlist
-    assert "ark/specs/0049-canonical-discovery-snapshot-promotion-freeze.md" in projectlist
-    assert "ark/plans/0049-canonical-discovery-snapshot-promotion-freeze.md" in projectlist
-    assert "ark/playbooks/0049-canonical-discovery-snapshot-promotion-freeze.md" in projectlist
+    assert (
+        "ark/specs/0049-canonical-discovery-snapshot-promotion-freeze.md"
+        in projectlist
+    )
+    assert (
+        "ark/plans/0049-canonical-discovery-snapshot-promotion-freeze.md"
+        in projectlist
+    )
+    assert (
+        "ark/playbooks/0049-canonical-discovery-snapshot-promotion-freeze.md"
+        in projectlist
+    )
     assert "Blocking Findings" in review_0049
     assert "divergence" in plan_0049

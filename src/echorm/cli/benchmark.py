@@ -14,6 +14,7 @@ from ..eval.broad_validation import (
     materialize_silver_validation_package,
 )
 from ..eval.claims_audit import materialize_claims_audit
+from ..eval.discovery_snapshot import materialize_discovery_snapshot_package
 from ..eval.first_benchmark import materialize_first_benchmark_package
 from ..eval.first_pass import materialize_first_pass_review_package
 from ..eval.readiness import materialize_benchmark_readiness_run
@@ -104,6 +105,25 @@ def build_parser() -> argparse.ArgumentParser:
         "discovery-analysis",
         help="Materialize the hold-out discovery and CLAGN analysis package.",
     )
+    discovery_snapshot_parser = subparsers.add_parser(
+        "discovery-snapshot",
+        help="Promote one canonical discovery-analysis snapshot.",
+    )
+    discovery_snapshot_parser.add_argument(
+        "--source-run-id",
+        default="discovery_analysis",
+        help="Discovery-analysis run identifier to promote.",
+    )
+    discovery_snapshot_parser.add_argument(
+        "--corpus-run-id",
+        default="corpus_scaleout",
+        help="Corpus-scaleout run identifier referenced by the promotion record.",
+    )
+    discovery_snapshot_parser.add_argument(
+        "--promoted-snapshot-id",
+        default=None,
+        help="Optional stable promoted snapshot identifier.",
+    )
     subparsers.add_parser(
         "release-closeout",
         help="Materialize the integrated release closeout package.",
@@ -112,9 +132,17 @@ def build_parser() -> argparse.ArgumentParser:
         "root-authority-audit",
         help="Materialize the full root-authority closeout audit.",
     )
-    subparsers.add_parser(
+    first_pass_parser = subparsers.add_parser(
         "first-pass-review",
         help="Materialize the benchmark-governed first-pass review package.",
+    )
+    first_pass_parser.add_argument(
+        "--snapshot-run-id",
+        default="discovery_snapshot",
+        help=(
+            "Promoted discovery snapshot run identifier required by first-pass "
+            "review."
+        ),
     )
     return parser
 
@@ -235,6 +263,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(index_path)
         return 0
+    if args.command == "discovery-snapshot":
+        index_path = materialize_discovery_snapshot_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=(
+                "discovery_snapshot" if args.profile == "baseline" else args.profile
+            ),
+            source_run_id=args.source_run_id,
+            corpus_run_id=args.corpus_run_id,
+            promoted_snapshot_id=args.promoted_snapshot_id,
+        )
+        print(index_path)
+        return 0
     if args.command == "optimization-closeout":
         index_path = materialize_optimization_closeout_package(
             artifact_root=artifact_root,
@@ -267,6 +309,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             profile=(
                 "first_pass_review" if args.profile == "baseline" else args.profile
             ),
+            snapshot_run_id=args.snapshot_run_id,
         )
         print(index_path)
         return 0
