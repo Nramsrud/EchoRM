@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ...calibrate.time import rest_frame_mjd
 from ...eval.qc import assess_series_quality
 from ...schemas import OBJECT_MANIFEST_SCHEMA, PHOTOMETRY_SCHEMA, SPECTRAL_EPOCH_SCHEMA
 from .manifests import SdssRmObjectBundle
@@ -15,6 +16,7 @@ def build_object_manifest(bundle: SdssRmObjectBundle) -> dict[str, object]:
         "ra_deg": bundle.ra_deg,
         "dec_deg": bundle.dec_deg,
         "redshift": bundle.redshift,
+        "time_origin_mjd": min(epoch.mjd_obs for epoch in bundle.epochs),
         "survey_ids": ",".join(bundle.aliases),
         "alias_group": ",".join(bundle.aliases),
         "reference_epoch_mjd": min(epoch.mjd_obs for epoch in bundle.epochs),
@@ -29,6 +31,7 @@ def build_object_manifest(bundle: SdssRmObjectBundle) -> dict[str, object]:
 
 def build_spectral_epoch_records(bundle: SdssRmObjectBundle) -> list[dict[str, object]]:
     """Build canonical spectral-epoch records."""
+    time_origin_mjd = min(epoch.mjd_obs for epoch in bundle.epochs)
     records: list[dict[str, object]] = []
     for epoch in bundle.epochs:
         record = {
@@ -36,7 +39,11 @@ def build_spectral_epoch_records(bundle: SdssRmObjectBundle) -> list[dict[str, o
             "epoch_uid": epoch.epoch_uid,
             "survey": "sdss_rm",
             "mjd_obs": epoch.mjd_obs,
-            "mjd_rest": epoch.mjd_obs / (1.0 + bundle.redshift),
+            "mjd_rest": rest_frame_mjd(
+                epoch.mjd_obs,
+                bundle.redshift,
+                reference_epoch_mjd=time_origin_mjd,
+            ),
             "z": bundle.redshift,
             "spec_path": epoch.raw_spec_path,
             "wave_min": epoch.wave_min,
@@ -51,6 +58,7 @@ def build_spectral_epoch_records(bundle: SdssRmObjectBundle) -> list[dict[str, o
 
 def build_photometry_records(bundle: SdssRmObjectBundle) -> list[dict[str, object]]:
     """Build canonical continuum photometry records."""
+    time_origin_mjd = min(epoch.mjd_obs for epoch in bundle.epochs)
     qc = assess_series_quality(
         mjd_obs=tuple(epoch.mjd_obs for epoch in bundle.epochs),
         quality_flags=tuple("ok" for _ in bundle.epochs),
@@ -63,7 +71,11 @@ def build_photometry_records(bundle: SdssRmObjectBundle) -> list[dict[str, objec
             "survey": "sdss_rm",
             "band": epoch.continuum_band,
             "mjd_obs": epoch.mjd_obs,
-            "mjd_rest": epoch.mjd_obs / (1.0 + bundle.redshift),
+            "mjd_rest": rest_frame_mjd(
+                epoch.mjd_obs,
+                bundle.redshift,
+                reference_epoch_mjd=time_origin_mjd,
+            ),
             "flux": epoch.continuum_flux,
             "flux_err": epoch.continuum_flux_err,
             "mag": -2.5,

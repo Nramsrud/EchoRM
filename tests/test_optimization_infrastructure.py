@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from echorm.eval.objectives import compute_mean_validation_score, enforce_mutation_guard
-from echorm.eval.search import run_grid_search
+from echorm.eval.objectives import (
+    compute_mean_validation_score,
+    compute_objective_scorecard,
+    enforce_mutation_guard,
+)
+from echorm.eval.search import run_backend_search, run_grid_search
 from echorm.eval.validation import ValidationResult
 
 
@@ -41,3 +45,36 @@ def test_grid_search_respects_trial_budget_and_field_guards() -> None:
     )
     assert len(trials) == 1
     assert trials[0].params["mapping_family"] == "echo_ensemble"
+
+
+def test_backend_search_emits_multi_objective_scorecards() -> None:
+    results = (
+        ValidationResult("a", "clean", 0.1, True, False, 1.0),
+        ValidationResult("b", "clean", 0.0, True, False, 1.2),
+    )
+    backend = run_backend_search(
+        backend_name="optuna",
+        candidates=({"mapping_family": "echo_ensemble"},),
+        evaluator=lambda candidate: compute_objective_scorecard(
+            results,
+            audio_only_accuracy=0.8,
+            plot_only_accuracy=0.6,
+            plot_audio_accuracy=0.9,
+            runtime_sec_mean=0.4,
+            reproducibility_rate=1.0,
+            anomaly_precision_at_k=0.8,
+            anomaly_auc=0.85,
+            interpretability_penalty=0.1,
+        ),
+        allowed_fields=("mapping_family",),
+        prohibited_targets=("benchmark_labels", "discovery_pool"),
+        trial_budget=1,
+    )
+    assert backend.backend_name == "optuna"
+    assert backend.best_scorecard.m2_coverage_calibration > 0.0
+    assert len(backend.pareto_front) == 1
+    trial_payload = backend.trials[0].to_dict()
+    scorecard = trial_payload["scorecard"]
+    assert isinstance(scorecard, dict)
+    assert float(str(scorecard["m2_coverage_calibration"])) > 0.0
+    assert float(str(scorecard["representative_utility"])) > 0.0

@@ -24,6 +24,8 @@ def test_release_bundle_is_complete_and_provenance_aware() -> None:
             {"artifact": "catalog", "hash": "abc123"},
             {"artifact": "audio", "hash": "def456"},
         ),
+        publication_artifacts=("docs/releases/v1.0.0.md",),
+        claims_scope="root_closeout",
     )
 
     assert bundle["artifact_inventory"] == (
@@ -33,6 +35,7 @@ def test_release_bundle_is_complete_and_provenance_aware() -> None:
         "benchmark_tables",
         "audio_products",
         "provenance_records",
+        "publication_artifacts",
     )
     assert str(bundle["provenance_records"]).count("artifact") == 2
 
@@ -48,9 +51,12 @@ def test_release_index_matches_bundle_contents() -> None:
         benchmark_tables=("benchmarks/clean.csv",),
         audio_products=("audio/ngc5548-echo.wav", "audio/ngc5548-direct.wav"),
         provenance_records=({"artifact": "catalog", "hash": "abc123"},),
+        publication_artifacts=("docs/releases/v1.0.0.md",),
+        claims_scope="root_closeout",
     )
     index = build_release_index(bundle)
 
     assert "# Release v1.0.0" in index
     assert "- Catalog entries: 1" in index
     assert "- Audio products: 2" in index
+    assert "- Publication artifacts: 1" in index

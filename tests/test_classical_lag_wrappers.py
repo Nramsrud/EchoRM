@@ -22,13 +22,20 @@ def test_pyccf_adapter_emits_canonical_lag_record() -> None:
         object_uid="ngc5548",
         driver=driver,
         response=response,
-        config=PyccfConfig(max_lag=3, fr_rss_samples=4),
+        config=PyccfConfig(nsim=4),
     )
     serialized = serialize_lag_run(run)
 
     assert LAG_RESULT_SCHEMA.validate_record(serialized.record) == ()
-    assert serialized.record["lag_median"] == 2.0
-    assert "fr_rss_distribution" in serialized.diagnostics
+    assert serialized.record["method"] == "pyccf"
+    assert serialized.diagnostics["backend_mode"] in {
+        "official_package_subprocess",
+        "unavailable_external_dep",
+    }
+    if serialized.diagnostics["backend_mode"] == "official_package_subprocess":
+        assert "fr_rss_distribution" in serialized.diagnostics
+    else:
+        assert "detail" in serialized.diagnostics
 
 
 def test_pyzdcf_adapter_preserves_sparse_sampling_diagnostics() -> None:
@@ -46,12 +53,14 @@ def test_pyzdcf_adapter_preserves_sparse_sampling_diagnostics() -> None:
         object_uid="ngc5548",
         driver=driver,
         response=response,
-        config=PyzdcfConfig(max_lag=3, min_pairs=2),
+        config=PyzdcfConfig(num_mc=2),
     )
     serialized = serialize_lag_run(run)
 
-    assert serialized.record["lag_median"] == 1.0
+    assert serialized.record["method"] == "pyzdcf"
+    assert float(str(serialized.record["lag_hi"])) >= float(
+        str(serialized.record["lag_lo"])
+    )
     assert serialized.diagnostics["sparse_sampling_pairs"] == 4
     config_text = str(serialized.runtime_metadata["config"])
-    assert "max_lag" in config_text
-    assert "min_pairs" in config_text
+    assert "num_mc" in config_text

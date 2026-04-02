@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,7 +16,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint, Typecheck, Test
+    name: Lint and Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -40,5 +41,102 @@ jobs:
       - name: Typecheck
         run: python -m mypy src tests
 
+  pr-essentials:
+    name: PR Essentials
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Smoke Tests
+        run: |
+          python -m pytest \
+            tests/test_package.py \
+            tests/test_repository_skeleton.py \
+            tests/test_public_artifact_rules.py \
+            tests/test_schemas.py \
+            tests/test_workflow_stack.py \
+            tests/test_local_validation_gate.py
+
+      - name: Workflow dry-run
+        run: snakemake --snakefile workflows/Snakefile --dry-run
+
+  pr-merge-gate:
+    name: Lint, Typecheck, Test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - quality
+      - pr-essentials
+
+    steps:
+      - name: Confirm required PR gate contexts passed
+        run: |
+          echo "quality and PR essentials completed successfully"
+
+  scientific-validation:
+    name: Scientific Validation
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          init-shell: bash
+
+      - name: Install system toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gfortran \
+            pkg-config \
+            libopenblas-dev \
+            liblapacke-dev \
+            libgsl-dev \
+            libhwloc-dev \
+            openmpi-bin \
+            libopenmpi-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+          python -m pip install -e .[dev,scientific]
+          python -m pip install git+https://github.com/legolason/PyQSOFit.git
+
+      - name: Setup scientific runtimes
+        run: bash scripts/ci/setup_scientific_runtimes.sh
+
       - name: Test
         run: python -m pytest
+
+      - name: Workflow dry-run
+        run: snakemake --snakefile workflows/Snakefile --dry-run

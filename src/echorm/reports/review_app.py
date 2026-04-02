@@ -117,8 +117,13 @@ def render_run_detail_html(run: dict[str, object]) -> str:
     methods = run.get("methods", [])
     nulls = run.get("nulls", [])
     reruns = run.get("reruns", [])
+    spectral_fits = run.get("spectral_fits", [])
     tasks = run.get("tasks", [])
     cohorts = run.get("cohorts", [])
+    candidates = run.get("candidates", [])
+    experiments = run.get("experiments", [])
+    bundles = run.get("bundles", [])
+    catalog_entries = run.get("catalog_entries", [])
     comparisons = run.get("comparisons", [])
     audit_conditions = run.get("audit_conditions", [])
     literature_table = run.get("literature_table", [])
@@ -242,6 +247,21 @@ def render_run_detail_html(run: dict[str, object]) -> str:
             "</tr>"
         )
 
+    spectral_fit_rows = []
+    for item in spectral_fits if isinstance(spectral_fits, list) else []:
+        if not isinstance(item, dict):
+            continue
+        fit_id = escape(str(item.get("spectral_fit_id", "")))
+        spectral_fit_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/spectral_fits/{fit_id}'>{fit_id}</a></td>"
+            f"<td>{escape(str(item.get('object_uid', '')))}</td>"
+            f"<td>{escape(str(item.get('continuum_variant', '')))}</td>"
+            f"<td>{escape(str(item.get('calibration_confidence', '')))}</td>"
+            "</tr>"
+        )
+
     task_rows = []
     for item in tasks if isinstance(tasks, list) else []:
         if not isinstance(item, dict):
@@ -268,6 +288,50 @@ def render_run_detail_html(run: dict[str, object]) -> str:
             f"<td>{escape(str(item.get('accuracy', '')))}</td>"
             f"<td>{escape(str(item.get('time_to_decision_sec', '')))}</td>"
             f"<td>{escape(str(item.get('training_level', '')))}</td>"
+            "</tr>"
+        )
+
+    candidate_rows = []
+    for item in candidates if isinstance(candidates, list) else []:
+        if not isinstance(item, dict):
+            continue
+        candidate_id = escape(str(item.get("object_uid", "")))
+        candidate_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/candidates/{candidate_id}'>{candidate_id}</a></td>"
+            f"<td>{escape(str(item.get('anomaly_category', '')))}</td>"
+            f"<td>{escape(str(item.get('rank_score', '')))}</td>"
+            f"<td>{escape(str(item.get('review_priority', '')))}</td>"
+            "</tr>"
+        )
+
+    experiment_rows = []
+    for item in experiments if isinstance(experiments, list) else []:
+        if not isinstance(item, dict):
+            continue
+        experiment_id = escape(str(item.get("experiment_id", "")))
+        experiment_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/experiments/{experiment_id}'>{experiment_id}</a></td>"
+            f"<td>{escape(str(item.get('backend_name', '')))}</td>"
+            f"<td>{escape(str(item.get('trial_count', '')))}</td>"
+            f"<td>{escape(str(item.get('best_scorecard', '')))}</td>"
+            "</tr>"
+        )
+
+    bundle_rows = []
+    for item in bundles if isinstance(bundles, list) else []:
+        if not isinstance(item, dict):
+            continue
+        bundle_id = escape(str(item.get("bundle_id", "")))
+        bundle_rows.append(
+            "<tr>"
+            f"<td><a href='/runs/{escape(str(run.get('run_id', '')))}"
+            f"/bundles/{bundle_id}'>{bundle_id}</a></td>"
+            f"<td>{escape(str(item.get('version', '')))}</td>"
+            f"<td>{escape(str(item.get('catalog_entry_count', '')))}</td>"
             "</tr>"
         )
 
@@ -336,6 +400,10 @@ def render_run_detail_html(run: dict[str, object]) -> str:
         "<table><thead><tr><th>Rerun</th><th>Metric</th><th>Drift</th>"
         "<th>Passed</th></tr></thead>"
         f"<tbody>{''.join(rerun_rows)}</tbody></table>"
+        "<h2>Spectral Fits</h2>"
+        "<table><thead><tr><th>Fit</th><th>Object</th><th>Variant</th>"
+        "<th>Calibration Confidence</th></tr></thead>"
+        f"<tbody>{''.join(spectral_fit_rows)}</tbody></table>"
         "<h2>Tasks</h2>"
         "<table><thead><tr><th>Task</th><th>Mode</th><th>Type</th></tr></thead>"
         f"<tbody>{''.join(task_rows)}</tbody></table>"
@@ -343,6 +411,18 @@ def render_run_detail_html(run: dict[str, object]) -> str:
         "<table><thead><tr><th>Cohort</th><th>Accuracy</th>"
         "<th>Time To Decision</th><th>Training Level</th></tr></thead>"
         f"<tbody>{''.join(cohort_rows)}</tbody></table>"
+        "<h2>Candidates</h2>"
+        "<table><thead><tr><th>Candidate</th><th>Category</th><th>Rank</th>"
+        "<th>Review Priority</th></tr></thead>"
+        f"<tbody>{''.join(candidate_rows)}</tbody></table>"
+        "<h2>Experiments</h2>"
+        "<table><thead><tr><th>Experiment</th><th>Backend</th><th>Trials</th>"
+        "<th>Best Scorecard</th></tr></thead>"
+        f"<tbody>{''.join(experiment_rows)}</tbody></table>"
+        "<h2>Bundles</h2>"
+        "<table><thead><tr><th>Bundle</th><th>Version</th>"
+        "<th>Catalog Entries</th></tr></thead>"
+        f"<tbody>{''.join(bundle_rows)}</tbody></table>"
         "<h2>Comparisons</h2>"
         f"<table><tbody>{''.join(comparison_rows)}</tbody></table>"
         "<h2>Literature Table</h2>"
@@ -353,6 +433,8 @@ def render_run_detail_html(run: dict[str, object]) -> str:
         f"<pre>{escape(json.dumps(responses, indent=2, sort_keys=True))}</pre>"
         "<h2>Confusion Summary</h2>"
         f"<pre>{escape(json.dumps(confusion_summary, indent=2, sort_keys=True))}</pre>"
+        "<h2>Catalog Entries</h2>"
+        f"<pre>{escape(json.dumps(catalog_entries, indent=2, sort_keys=True))}</pre>"
         "<h2>Claims Audit</h2>"
         "<table><thead><tr><th>Condition</th><th>OK</th><th>Detail</th></tr></thead>"
         f"<tbody>{''.join(audit_rows)}</tbody></table>"
@@ -491,8 +573,12 @@ def build_review_handler(artifact_root: Path) -> type[BaseHTTPRequestHandler]:
                     "methods",
                     "nulls",
                     "reruns",
+                    "spectral_fits",
                     "tasks",
                     "cohorts",
+                    "candidates",
+                    "experiments",
+                    "bundles",
                 }:
                     _, _, run_id, group, item_id = segments
                     self._send_json(
@@ -524,8 +610,12 @@ def build_review_handler(artifact_root: Path) -> type[BaseHTTPRequestHandler]:
                     "methods",
                     "nulls",
                     "reruns",
+                    "spectral_fits",
                     "tasks",
                     "cohorts",
+                    "candidates",
+                    "experiments",
+                    "bundles",
                 }:
                     _, run_id, group, item_id = segments
                     item = load_group_detail(artifact_root, run_id, group, item_id)
@@ -534,8 +624,12 @@ def build_review_handler(artifact_root: Path) -> type[BaseHTTPRequestHandler]:
                         "methods": "method_id",
                         "nulls": "null_id",
                         "reruns": "rerun_id",
+                        "spectral_fits": "spectral_fit_id",
                         "tasks": "task_id",
                         "cohorts": "cohort_id",
+                        "candidates": "object_uid",
+                        "experiments": "experiment_id",
+                        "bundles": "bundle_id",
                     }[group]
                     self._send_text(
                         body=render_group_detail_html(

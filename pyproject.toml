@@ -18,6 +18,17 @@ dev = [
   "ruff>=0.9,<1",
   "snakemake>=9,<10",
 ]
+scientific = [
+  "numpy>=1.23,<2",
+  "astropy>=6,<8",
+  "astroquery>=0.4.9,<1",
+  "optuna>=3,<5",
+  "ray[tune]>=2.30,<3",
+  "ax-platform>=0.4,<2",
+  "pyzdcf>=1,<2",
+  "eztao>=0.4,<1",
+  "celerite2>=0.3,<1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -33,6 +44,21 @@ select = ["B", "E", "F", "I", "UP"]
 python_version = "3.12"
 files = ["src", "tests"]
 strict = true
+
+[[tool.mypy.overrides]]
+module = [
+  "astropy.*",
+  "astroquery.*",
+  "ax.*",
+  "celerite2",
+  "eztao.*",
+  "numpy",
+  "optuna",
+  "pyqsofit.*",
+  "pyzdcf",
+  "ray",
+]
+ignore_missing_imports = true
 
 [tool.setuptools]
 package-dir = { "" = "src" }

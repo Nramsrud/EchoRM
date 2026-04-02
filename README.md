@@ -22,4 +22,10 @@ These documents define the scientific scope and the operational constraints for 
 - `pyproject.toml` defines package metadata and the verification configuration.
 - `src/` and `tests/` contain the executable code and the verification suite.
 
+## Local Validation
+
+- Install the committed git hooks with `bash scripts/ci/install_git_hooks.sh`.
+- The local acceptance gate before every commit and push is `bash scripts/ci/run_local_scientific_validation.sh`.
+- The local gate runs `python3 -m ruff check .`, `python3 -m mypy src tests`, `python3 -m pytest`, and `snakemake --snakefile workflows/Snakefile --dry-run`.
+
 All published documentation in this repository must remain formal, concise, precise, and limited to essential content.
