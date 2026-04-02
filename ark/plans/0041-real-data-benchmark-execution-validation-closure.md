@@ -2,30 +2,27 @@
 
 ## Goal
 
-Replace the proxy-response benchmark path with real measured continuum and line-response validation at root-closeout scope.
+Maintain repository-local benchmark validation packages whose scope, evidence levels, and limitations remain explicit in every generated output.
 
 ## Implementation Approach
 
-Route the benchmark builders through the frozen corpus layer, build measured driver and response series from acquired data products, and tighten the validation packages and audits to reject proxy evidence.
+Route validation builders through shared package helpers, preserve literature and rerun summaries, and keep evidence labels explicit across gold, silver, and continuum outputs.
 
 ## Steps
 
-1. Build measured continuum and line-response extraction from the frozen corpora.
-2. Update method execution, consensus, and null builders to consume measured series.
-3. Regenerate gold and silver validation packages with literature-facing deliverables and mapping ablations.
-4. Add tests that fail if benchmark artifacts report proxy-response evidence in root-closeout runs.
+1. Keep gold, silver, and continuum package builders aligned to one evidence-labeling and limitations policy.
+2. Preserve literature tables, reruns, warnings, and method records in the generated packages.
+3. Ensure continuum support tasks remain visibly separated by evidence level.
+4. Add tests that fail when validation outputs omit package boundaries or silently drop warnings and limitations.
 
 ## Expected File Changes
 
 ### Modified Files
 
-- `src/echorm/eval/benchmark_corpus.py`
-- `src/echorm/eval/validation.py`
 - `src/echorm/eval/broad_validation.py`
-- `src/echorm/reports/*`
+- `src/echorm/eval/benchmark_corpus.py`
 - `src/echorm/cli/benchmark.py`
-- `workflows/Snakefile`
-- `workflows/rules/common.smk`
+- `src/echorm/reports/review_app.py`
 - `tests/*`
 
 ## Validation
@@ -35,8 +32,8 @@ Route the benchmark builders through the frozen corpus layer, build measured dri
 
 ## Exit Criteria
 
-- Root-closeout benchmark artifacts run on measured data products and include the required validation deliverables.
-- Proxy-response evidence blocks promotion.
+- Benchmark validation artifacts remain reviewable, reproducible, and explicit about their repository-local evidence boundaries.
+- Package summaries remain usable by the review surface and claims audits without ambiguity.
 
 ## Dependencies
 

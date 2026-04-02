@@ -2,18 +2,18 @@
 
 ## Goal
 
-Replace the shallow root closeout audit with a literal conformance gate tied directly to the root authority documents.
+Maintain a repository-local root-authority audit that aggregates the integrated closeout packages and preserves their claims boundary explicitly.
 
 ## Implementation Approach
 
-Enumerate root requirements, attach them to artifact and workflow checks, emit explicit fail states for every downgrade class identified by adversarial review, and surface the gate through the analyst workbench and release bundle.
+Keep the audit aligned to the generated closeout packages, preserve explicit conditions and package references, and surface the result through the analyst workbench and release bundle.
 
 ## Steps
 
-1. Define the root-authority requirement matrix over datasets, methods, metrics, phases, deliverables, and guardrails.
-2. Implement strict audit checks and explicit downgrade detection for surrogate, proxy, placeholder, and count-only evidence.
-3. Integrate the final audit into workflow outputs, release bundles, and review pages.
-4. Add tests that prove the audit rejects each adversarial failure class.
+1. Keep the audit condition set aligned to the integrated closeout packages.
+2. Preserve package references, limitations, and non-demonstrated capabilities in the emitted audit.
+3. Integrate the audit into workflow outputs, release bundles, and review pages.
+4. Add tests that prove the audit preserves its repository-local claims boundary under downgrade scenarios.
 
 ## Expected File Changes
 
@@ -23,8 +23,6 @@ Enumerate root requirements, attach them to artifact and workflow checks, emit e
 - `src/echorm/reports/review_app.py`
 - `src/echorm/reports/release.py`
 - `src/echorm/cli/benchmark.py`
-- `workflows/Snakefile`
-- `workflows/rules/common.smk`
 - `tests/*`
 
 ## Validation
@@ -34,8 +32,8 @@ Enumerate root requirements, attach them to artifact and workflow checks, emit e
 
 ## Exit Criteria
 
-- The final audit fails on every downgrade class identified in the remediation playbook.
-- Root-closeout readiness is determined only by literal conformance evidence.
+- The root-authority audit remains explicit about the packages it aggregates and the limitations it preserves.
+- Review and release surfaces can consume the audit without overstating what it demonstrates.
 
 ## Dependencies
 

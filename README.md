@@ -16,6 +16,14 @@ These documents define the scientific scope and the operational constraints for 
 - `ark/plans/` contains implementation plans after a specification is approved.
 - `docs/releases/` contains public release indexes and summaries.
 
+## Current State
+
+- `main` includes the benchmark-core and repository-local root-closeout package generators.
+- `artifacts/benchmark_runs/` contains the tracked benchmark, discovery, release, and audit bundles served by the review surface.
+- Claims remain bounded by the evidence labels, limitations, and non-demonstrated capabilities recorded in those generated packages.
+- `python3 -m echorm.cli.benchmark` materializes benchmark and root-closeout packages.
+- `python3 -m echorm.cli.review_app` serves the read-only review surface over those artifacts.
+
 ## Technical Baseline
 
 - Python 3.12

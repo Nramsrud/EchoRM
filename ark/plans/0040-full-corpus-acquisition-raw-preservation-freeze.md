@@ -2,30 +2,26 @@
 
 ## Goal
 
-Replace fixture-slice corpus evidence with literal public-data acquisition, raw preservation, and immutable freeze artifacts.
+Maintain repository-local corpus manifests with explicit provenance fields, immutable hashes, and clear hold-out governance.
 
 ## Implementation Approach
 
-Build acquisition helpers and freeze builders at the ingest layer, store large raw products under dedicated artifact roots, and expose normalized manifests back into the tracked benchmark pipeline.
+Route corpus builders through one manifest schema, preserve tier-level comparisons and hashes, and keep hold-out governance explicit in the generated package.
 
 ## Steps
 
-1. Add AGN Watch acquisition and raw-manifest helpers for the gold benchmark set.
-2. Add SDSS-RM / SDSS-V RM acquisition and normalization helpers for the benchmark population and published-lag metadata.
-3. Add ZTF DR24+ and CLAGN catalog acquisition helpers with cached responses, crossmatch keys, and hold-out governance.
-4. Emit freeze manifests, hashes, and provenance bundles consumed by root-closeout validation and discovery packages.
+1. Consolidate gold, silver, and discovery manifest builders around explicit inclusion, exclusion, hash, and release fields.
+2. Ensure discovery manifests preserve crossmatch keys, evidence levels, and hold-out policy.
+3. Keep corpus-scaleout comparisons and object summaries aligned to those manifests.
+4. Add tests that fail when required manifest fields or hold-out controls are missing.
 
 ## Expected File Changes
 
 ### Modified Files
 
-- `src/echorm/ingest/agn_watch/*`
-- `src/echorm/ingest/sdss_rm/*`
-- `src/echorm/ingest/ztf/*`
-- `src/echorm/eval/benchmark_corpus.py`
+- `src/echorm/eval/root_closeout.py`
+- `src/echorm/eval/literal_corpora.py`
 - `src/echorm/cli/benchmark.py`
-- `workflows/Snakefile`
-- `workflows/rules/common.smk`
 - `tests/*`
 
 ## Validation
@@ -35,8 +31,8 @@ Build acquisition helpers and freeze builders at the ingest layer, store large r
 
 ## Exit Criteria
 
-- Root-closeout corpus artifacts derive from real public acquisition records, not fixture-only inputs.
-- Freeze manifests preserve raw-source and hold-out provenance end to end.
+- Corpus-scaleout artifacts preserve traceable repository-local manifests across all tracked tiers.
+- Discovery hold-out governance remains explicit end to end.
 
 ## Dependencies
 

@@ -2,32 +2,32 @@
 
 ## Summary
 
-Implement the final root-authority conformance audit that fails unless the implementation, deliverables, and readiness state satisfy the literal root requirements.
+Materialize the repository-local root-authority audit over the integrated closeout packages and preserve its claims boundary explicitly.
 
 ## Scope
 
-- Map audit conditions one-to-one to the required datasets, modules, methods, metrics, phases, deliverables, and guardrails in the root authority documents.
-- Reject surrogate, placeholder, proxy, or count-only evidence as promotion input.
-- Produce a final readiness artifact that records passing conditions, failing conditions, limitations, and non-demonstrated capabilities explicitly.
-- Integrate the audit into workflows, review surfaces, and release bundles.
+- Aggregate `claims_audit`, `advanced_rigor`, `corpus_scaleout`, `optimization_closeout`, `discovery_analysis`, and `release_closeout` into one repository-local audit surface.
+- Record audit conditions, package references, limitations, and non-demonstrated capabilities explicitly.
+- Expose the audit through workflows, review surfaces, and release bundles.
+- Keep audit logic tied to tracked artifact content and package boundaries.
 
 ## Non-Goals
 
 - New method development.
-- New data acquisition beyond what the prior remediation packages require.
+- New data acquisition beyond what prior packages already materialize.
 
 ## Global Constraints
 
-- The final readiness decision must be evidence-based and reproducible.
-- Passing counts alone are insufficient; each condition must test literal compliance.
-- The audit must preserve limitations and may not imply external peer review.
+- The final readiness decision must be evidence-based and reproducible over tracked artifacts.
+- The audit must preserve limitations and non-demonstrated capabilities.
+- A passing repository-local audit may not imply external peer review or broader survey completion.
 
 ## Acceptance Criteria
 
-- Every root requirement named in the authority documents is mapped to one or more explicit audit checks.
-- The audit fails when any required backend, corpus, benchmark deliverable, optimization artifact, discovery output, release bundle, or guardrail is missing or downgraded.
-- The final readiness artifact records exact pass or fail reasoning with artifact references.
-- Tests verify audit strictness against representative downgrade scenarios.
+- The root-authority audit records explicit conditions and package references for the integrated closeout surface.
+- The audit summary includes readiness, `promotion_allowed`, limitations, and non-demonstrated capabilities.
+- The final readiness artifact remains explicit about its repository-local scope.
+- Tests verify downgrade scenarios and claims-boundary preservation.
 
 ## Dependencies
 

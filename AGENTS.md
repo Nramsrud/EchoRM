@@ -24,5 +24,6 @@
 
 - Treat benchmark scope, evidence level, and claims boundaries as explicit implementation requirements.
 - Distinguish operational readiness, fixture-backed real-data checks, synthetic benchmarks, and broader scientific validation in code, tests, specifications, plans, and summaries.
+- Treat repository-local readiness, release, and root-closeout artifacts as bounded by their recorded evidence levels, limitations, and non-demonstrated capabilities.
 - Preserve provenance, benchmark labels, assumptions, limitations, and non-demonstrated capabilities in committed artifacts.
 - Do not describe the system as scientifically benchmark-ready beyond the coverage demonstrated by tracked benchmark artifacts.

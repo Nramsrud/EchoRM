@@ -2,14 +2,14 @@
 
 ## Summary
 
-Run the discovery and CLAGN program on the frozen real hold-out pool using validated pipeline outputs rather than authored fixture scores.
+Materialize repository-local hold-out candidate bundles and CLAGN transition analyses from tracked discovery inputs with explicit evidence bundles.
 
 ## Scope
 
-- Build anomaly ranking from validated lag, line-response, sonification, and state-change outputs on the frozen hold-out pool.
-- Produce CLAGN transition and precursor analyses with aligned timelines and spectroscopic evidence.
-- Emit ranked catalogs, candidate memos, taxonomy labels, and follow-up priorities from structured evidence.
-- Preserve the benchmark-to-discovery linkage and the hold-out boundary explicitly.
+- Build anomaly ranking from lag, line-response, sonification, and state-change features on the tracked hold-out pool.
+- Produce transition analyses, ranked candidate bundles, taxonomy labels, benchmark links, and follow-up priorities from structured evidence.
+- Preserve method-support counts, review priority, evidence level, and limitations on every candidate record.
+- Keep the benchmark-to-discovery linkage and the hold-out boundary explicit in the repository-local package surface.
 
 ## Non-Goals
 
@@ -18,16 +18,16 @@ Run the discovery and CLAGN program on the frozen real hold-out pool using valid
 
 ## Global Constraints
 
-- Discovery outputs must remain downstream of the frozen benchmark and optimizer evidence.
+- Discovery outputs must remain downstream of tracked benchmark and optimizer evidence.
 - Hold-out evidence may not be used to refit thresholds or objectives.
-- Root-closeout promotion may not use authored anomaly scores as discovery evidence.
+- Candidate rankings are not final scientific claims and require manual review.
 
 ## Acceptance Criteria
 
-- Discovery artifacts consume validated real-data outputs from the frozen hold-out corpora.
-- CLAGN transition artifacts include aligned timelines, state comparisons, and spectroscopic evidence summaries.
-- Ranked catalogs and candidate memos record anomaly taxonomy, evidence support, and follow-up priority.
-- Tests verify that fixture-authored anomaly scores or threshold-only discovery logic fail the root-closeout path.
+- Discovery-analysis artifacts include ranked candidates, anomaly categories, transition records, and candidate memos.
+- Every candidate record preserves score components, benchmark links, evidence level, method support, review priority, and limitations.
+- CLAGN transition artifacts remain attached to candidate bundles with aligned temporal summaries.
+- Tests verify hold-out enforcement, traceability, and candidate-package completeness.
 
 ## Dependencies
 

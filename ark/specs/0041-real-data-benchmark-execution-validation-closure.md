@@ -2,14 +2,14 @@
 
 ## Summary
 
-Execute the validation program on real measured continuum and line-response data from the frozen corpora and close the proxy-response benchmark gap.
+Materialize benchmark validation packages over the tracked benchmark corpus with explicit literature comparisons, null controls, reruns, and evidence boundaries.
 
 ## Scope
 
-- Run the required RM methods on real continuum and line-response measurements rather than derived proxy response series.
-- Produce the gold and silver validation deliverables required by the root phases, including literature-facing comparison tables.
-- Expand null and failure diagnostics to the controls named in the authority plan.
-- Record benchmark evidence levels, limitations, and non-demonstrated capability boundaries explicitly.
+- Run the gold and silver validation builders over the tracked benchmark corpus.
+- Produce literature comparison tables, method records, reruns, and regime-level summaries for the repository-local validation surface.
+- Keep continuum support cases separated by evidence level, including synthetic and literature-inspired tasks.
+- Record benchmark evidence levels, limitations, warnings, and non-demonstrated capability boundaries explicitly.
 
 ## Non-Goals
 
@@ -18,16 +18,16 @@ Execute the validation program on real measured continuum and line-response data
 
 ## Global Constraints
 
-- Real-data validation claims must remain bounded by the measured channels and corpora actually executed.
-- Null and failure diagnostics must remain explicit and reproducible.
-- Root-closeout promotion may not rely on proxy response evidence.
+- Validation claims remain bounded by the channels, corpora, and evidence labels recorded in the generated packages.
+- Null, warning, and rerun diagnostics must remain explicit and reproducible.
+- Synthetic or literature-inspired support tasks may not be promoted as discovery or external-validation closure.
 
 ## Acceptance Criteria
 
-- Gold and silver benchmark packages run on real measured series from the frozen corpora.
-- Validation outputs include AGN Watch memo, SDSS-RM leaderboard, and mapping-ablation artifacts.
-- Null suites cover shuffled, reversed, misaligned, sparse, low-SNR, contaminated, and state-change controls.
-- Tests verify that root-closeout validation fails when proxy response evidence is present.
+- Gold and silver packages include object records, method records, literature comparisons, reruns, and explicit limitations.
+- Continuum validation records evidence level per case together with warnings and rerun stability.
+- Validation summaries preserve demonstrated capabilities, limitations, and non-demonstrated capabilities directly in package outputs.
+- Tests verify package completeness, evidence labels, and audit integration.
 
 ## Dependencies
 

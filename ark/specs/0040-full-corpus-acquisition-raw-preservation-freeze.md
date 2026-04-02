@@ -2,14 +2,14 @@
 
 ## Summary
 
-Acquire, normalize, and freeze the literal gold, silver, and discovery corpora required by the root authority documents with preserved raw source products and provenance.
+Freeze the repository-local gold, silver, and discovery corpora with explicit hashes, inclusion criteria, release identifiers, and hold-out governance.
 
 ## Scope
 
-- Acquire AGN Watch gold objects with raw-download preservation and parser-family metadata.
-- Acquire SDSS-RM / SDSS-V RM benchmark objects with raw spectral assets, normalized derivatives, literature lag labels, and exclusion records.
-- Acquire ZTF DR24+ discovery inputs and CLAGN catalog metadata with release pinning, query provenance, cached responses, and hold-out boundaries.
-- Emit immutable freeze manifests with hashes, counts, strata, source identifiers, and provenance references.
+- Emit gold, silver, and discovery manifests from the tracked corpus builders.
+- Preserve evidence levels, release identifiers, inclusion criteria, exclusions, manifest hashes, and crossmatch keys in those manifests.
+- Encode discovery hold-out policy, strata counts, and object inventories explicitly.
+- Keep corpus artifacts explicit about tracked slices rather than inferring broader survey coverage.
 
 ## Non-Goals
 
@@ -18,16 +18,16 @@ Acquire, normalize, and freeze the literal gold, silver, and discovery corpora r
 
 ## Global Constraints
 
-- Raw-source products must remain immutable and traceable to public origin.
-- Normalized products must remain linked to raw-source provenance, release identifiers, and query policy.
-- Root-closeout promotion may not use fixture-only corpora as substitute evidence.
+- Manifest outputs must remain immutable, hashable, and traceable to their tracked inputs.
+- Discovery hold-out artifacts may not be reused as optimization targets.
+- Documentation may not infer full-survey coverage from curated tracked slices.
 
 ## Acceptance Criteria
 
-- Gold, silver, and discovery freeze artifacts are generated from real acquired public data and include raw-preservation records.
-- Freeze manifests record inclusion criteria, exclusions, strata, hashes, source URLs, release identifiers, and hold-out boundaries.
-- Corpus artifacts distinguish raw, normalized, and derived products explicitly.
-- Tests verify manifest completeness, raw-preservation traceability, and hold-out immutability.
+- The corpus-scaleout package includes gold, silver, and discovery manifests with counts, hashes, and strata.
+- Discovery manifests record release identifiers, crossmatch keys, evidence levels, and hold-out policy explicitly.
+- Corpus artifacts preserve inclusion criteria, exclusions, and manifest comparisons across the tracked tiers.
+- Tests verify manifest completeness, hash stability, and hold-out governance.
 
 ## Dependencies
 

@@ -2,14 +2,14 @@
 
 ## Summary
 
-Assemble the literal root-plan release outputs, analyst workbench views, publication artifacts, and provenance-complete benchmark and audio archives.
+Assemble repository-local release and analyst-review bundles from tracked benchmark, optimization, discovery, and audit artifacts.
 
 ## Scope
 
-- Build methods-paper and catalog-paper artifact bundles from tracked evidence.
-- Build an open-source release bundle with code, configs, manifests, workflows, benchmark tables, and reproducibility checklist.
-- Build benchmark and audio archives with provenance-complete manifests.
-- Extend the analyst workbench to expose benchmark, optimization, discovery, and release evidence directly from structured artifacts.
+- Build methods, catalog, archive, and open-source release bundles from tracked repository-local evidence.
+- Build benchmark and audio archives with provenance-complete manifests and inventory records.
+- Extend the analyst workbench to expose benchmark, optimization, discovery, release, and conformance evidence directly from structured artifacts.
+- Preserve release-package limitations and evidence boundaries explicitly in release summaries.
 
 ## Non-Goals
 
@@ -18,16 +18,16 @@ Assemble the literal root-plan release outputs, analyst workbench views, publica
 
 ## Global Constraints
 
-- Release artifacts must remain traceable to validated inputs and frozen provenance.
-- Publication-facing outputs may not overstate scope beyond the tracked evidence.
-- Root-closeout promotion may not use placeholder release summaries as substitute deliverables.
+- Release artifacts must remain traceable to their source packages and provenance records.
+- Publication-facing filenames do not by themselves mark external publication readiness.
+- Repository-local release summaries may not overstate scope beyond the tracked evidence.
 
 ## Acceptance Criteria
 
-- Methods-paper, catalog-paper, benchmark-archive, audio-archive, and open-source release bundles all exist as tracked outputs.
+- The release-closeout package includes named methods, catalog, archive, and open-source release outputs.
 - The analyst workbench exposes benchmark, optimization, discovery, release, and conformance artifacts through one read-only surface.
-- Release manifests record code references, configuration references, provenance records, and artifact hashes.
-- Tests verify bundle completeness, workbench coverage, and provenance completeness.
+- Release manifests record source-package references, provenance records, and artifact inventories.
+- Tests verify bundle completeness, workbench coverage, and traceability.
 
 ## Dependencies
 

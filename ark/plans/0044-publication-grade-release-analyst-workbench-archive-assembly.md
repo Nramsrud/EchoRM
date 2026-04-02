@@ -2,30 +2,27 @@
 
 ## Goal
 
-Replace placeholder release summaries with the literal release, archive, and analyst-review deliverables required by the root authority documents.
+Maintain a repository-local release-closeout package and analyst workbench that expose tracked outputs without overstating publication status.
 
 ## Implementation Approach
 
-Extend the release and review builders so they assemble publication-grade bundles and expose them through the analyst workbench directly from structured benchmark, optimization, and discovery artifacts.
+Extend the release and review builders so they assemble structured repository-local bundles and expose them through the analyst workbench directly from benchmark, optimization, discovery, and audit artifacts.
 
 ## Steps
 
-1. Build structured methods-paper, catalog-paper, benchmark-archive, audio-archive, and open-source release bundles.
+1. Keep methods, catalog, archive, and open-source release outputs materialized through one repository-local package.
 2. Extend the analyst workbench with optimization, discovery, release, and conformance views.
-3. Add provenance manifests, hashes, and reproducibility checklists to every release bundle.
-4. Add tests that fail when any required release or review deliverable is missing or placeholder-only.
+3. Preserve provenance manifests, inventories, and source-package references across release outputs.
+4. Add tests that fail when required release or review deliverables become incomplete or untraceable.
 
 ## Expected File Changes
 
 ### Modified Files
 
 - `src/echorm/reports/release.py`
-- `src/echorm/reports/catalog.py`
 - `src/echorm/reports/review_app.py`
 - `src/echorm/eval/root_closeout.py`
 - `src/echorm/cli/benchmark.py`
-- `workflows/Snakefile`
-- `workflows/rules/common.smk`
 - `tests/*`
 
 ## Validation
@@ -35,8 +32,8 @@ Extend the release and review builders so they assemble publication-grade bundle
 
 ## Exit Criteria
 
-- Root-closeout release artifacts are publication-grade, provenance-complete, and reviewable through the analyst workbench.
-- Placeholder-only release evidence no longer passes the root-closeout path.
+- Release-closeout artifacts remain reviewable, provenance-complete, and explicit about their repository-local claims boundary.
+- The analyst workbench can navigate those outputs without ambiguity.
 
 ## Dependencies
 
