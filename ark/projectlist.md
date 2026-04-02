@@ -22,8 +22,8 @@ releases:
     name: "Discovery, Optimization, and Scale-Out"
     status: active
     summary: "Integrate the repository-local root-closeout surface beyond the benchmark gate: advanced rigor, corpus governance, optimization, discovery analysis, analyst review, and release packaging."
-    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046"]
-    notes: "The root-closeout package surface is integrated on main. Current readiness, discovery, and release outputs remain repository-local and bounded by the evidence labels, limitations, and hold-out rules recorded in their generated packages."
+    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046", "0047", "0048"]
+    notes: "The root-closeout package surface is integrated on main. Current readiness, discovery, release, and first-pass review outputs remain repository-local and bounded by the evidence labels, limitations, and hold-out rules recorded in their generated packages."
   - version: "v1.0.0"
     name: "Open Science Release"
     status: planning
@@ -647,6 +647,19 @@ projects:
     dependencies: ["0046", "0039", "0040", "0041", "0042", "0043", "0044", "0045"]
     tags: [playbook, remediation, adversarial-review, root-authority, conformance]
     notes: "This remediation record is retained for final claims-boundary review. It no longer serves as a branch-only status note."
+  - id: "0048"
+    title: "Benchmark-Governed First-Pass Review"
+    summary: "Materialize a repository-local first-pass review package that defines benchmark anchors, candidate waves, and bounded dispositions for the current hold-out pool."
+    status: committed
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0048-benchmark-governed-first-pass-review.md
+      plan: ark/plans/0048-benchmark-governed-first-pass-review.md
+      review: ark/playbooks/0048-benchmark-governed-first-pass-review.md
+    dependencies: ["0026", "0027", "0028", "0029", "0043", "0045"]
+    tags: [analysis, discovery, governance, review, hold-out]
+    notes: "Implemented through repository-local first_pass_review materialization. The package preserves the fixture-bounded claims boundary and the requirement for real-data reruns."
 ```
 ## Authority Notes
 

@@ -50,5 +50,15 @@ def test_repository_local_package_specs_preserve_bounded_scope() -> None:
         "ark/specs/0043-holdout-discovery-clagn-real-data-analysis.md",
         "ark/specs/0044-publication-grade-release-analyst-workbench-archive-assembly.md",
         "ark/specs/0045-literal-root-authority-conformance-audit-final-readiness-gate.md",
+        "ark/specs/0048-benchmark-governed-first-pass-review.md",
     ):
         assert "repository-local" in _read(path)
+
+
+def test_first_pass_project_entry_has_spec_plan_and_review() -> None:
+    projectlist = _read("ark/projectlist.md")
+
+    assert 'id: "0048"' in projectlist
+    assert "ark/specs/0048-benchmark-governed-first-pass-review.md" in projectlist
+    assert "ark/plans/0048-benchmark-governed-first-pass-review.md" in projectlist
+    assert "ark/playbooks/0048-benchmark-governed-first-pass-review.md" in projectlist

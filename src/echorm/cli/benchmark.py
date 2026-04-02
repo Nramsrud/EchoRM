@@ -15,6 +15,7 @@ from ..eval.broad_validation import (
 )
 from ..eval.claims_audit import materialize_claims_audit
 from ..eval.first_benchmark import materialize_first_benchmark_package
+from ..eval.first_pass import materialize_first_pass_review_package
 from ..eval.readiness import materialize_benchmark_readiness_run
 from ..eval.root_closeout import (
     materialize_advanced_rigor_package,
@@ -110,6 +111,10 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "root-authority-audit",
         help="Materialize the full root-authority closeout audit.",
+    )
+    subparsers.add_parser(
+        "first-pass-review",
+        help="Materialize the benchmark-governed first-pass review package.",
     )
     return parser
 
@@ -251,6 +256,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             artifact_root=artifact_root,
             run_id=args.run_id,
             profile="root_closeout" if args.profile == "baseline" else args.profile,
+        )
+        print(index_path)
+        return 0
+    if args.command == "first-pass-review":
+        index_path = materialize_first_pass_review_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=(
+                "first_pass_review" if args.profile == "baseline" else args.profile
+            ),
         )
         print(index_path)
         return 0

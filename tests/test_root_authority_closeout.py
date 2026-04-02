@@ -11,6 +11,7 @@ from echorm.eval.broad_validation import (
     materialize_silver_validation_package,
 )
 from echorm.eval.claims_audit import materialize_claims_audit
+from echorm.eval.first_pass import materialize_first_pass_review_package
 from echorm.eval.readiness import ToolStatus, VerificationCheck
 from echorm.eval.root_closeout import (
     materialize_advanced_rigor_package,
@@ -84,11 +85,49 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
     materialize_optimization_closeout_package(artifact_root=artifact_root)
     materialize_release_closeout_package(artifact_root=artifact_root)
     audit_path = materialize_root_authority_audit(artifact_root=artifact_root)
+    first_pass_path = materialize_first_pass_review_package(
+        repo_root=ROOT,
+        artifact_root=artifact_root,
+        verification=verification,
+        tools=tools,
+    )
 
     payload = json.loads(audit_path.read_text(encoding="utf-8"))
     summary = payload["summary"]
     assert summary["promotion_allowed"] is True
     assert summary["condition_count"] >= 7
+
+    first_pass_payload = json.loads(first_pass_path.read_text(encoding="utf-8"))
+    first_pass_candidates = first_pass_payload["candidates"]
+    assert isinstance(first_pass_candidates, list)
+    primary_candidates = [
+        item for item in first_pass_candidates if item["review_wave"] == "primary"
+    ]
+    deferred_candidates = [
+        item for item in first_pass_candidates if item["review_wave"] == "deferred"
+    ]
+    assert primary_candidates
+    assert deferred_candidates
+    assert all(
+        item["real_data_rerun_required"] is True
+        for item in first_pass_candidates
+    )
+    assert all(
+        item["transition_detected"] is True
+        and item["lag_state_change"] >= 1.2
+        and item["line_response_ratio"] <= 0.55
+        and item["rank_score"] >= 0.76
+        for item in primary_candidates
+    )
+    assert all(
+        not (
+            item["transition_detected"] is True
+            and item["lag_state_change"] >= 1.2
+            and item["line_response_ratio"] <= 0.55
+            and item["rank_score"] >= 0.76
+        )
+        for item in deferred_candidates
+    )
 
     advanced_payload = json.loads(
         (artifact_root / "advanced_rigor" / "index.json").read_text(encoding="utf-8")
