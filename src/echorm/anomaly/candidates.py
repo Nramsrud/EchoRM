@@ -44,11 +44,12 @@ def build_candidate(
     limitations: tuple[str, ...] = (),
 ) -> CandidateRecord:
     """Build a ranked candidate record."""
-    category = (
-        "clagn_transition"
-        if transition.transition_detected
-        else "continuum_lag_outlier"
-    )
+    if transition.transition_detected:
+        category = "clagn_transition"
+    elif transition.alignment_eligible and not transition.state_transition_supported:
+        category = "clagn_precursor_context"
+    else:
+        category = "continuum_lag_outlier"
     return CandidateRecord(
         object_uid=score.object_uid,
         anomaly_category=category,
@@ -57,6 +58,9 @@ def build_candidate(
             "score_components": score.components,
             "lag_state_change": transition.lag_state_change,
             "line_response_ratio": transition.line_response_ratio,
+            "alignment_eligible": transition.alignment_eligible,
+            "state_transition_supported": transition.state_transition_supported,
+            "alignment_status": transition.alignment_status,
             "evidence_level": score.evidence_level,
             "benchmark_links": list(benchmark_links),
         },

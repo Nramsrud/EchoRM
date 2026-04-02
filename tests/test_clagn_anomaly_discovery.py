@@ -92,3 +92,29 @@ def test_candidate_records_preserve_method_support_and_transition_metadata() -> 
     assert payload["method_support_count"] == 3
     assert payload["review_priority"] == "high"
     assert "gold_validation" in benchmark_links
+
+
+def test_same_state_alignment_cannot_be_labeled_as_transition() -> None:
+    score = rank_anomaly(
+        object_uid="ztf-target-003",
+        lag_outlier=0.95,
+        line_response_outlier=0.9,
+        sonification_outlier=0.85,
+        is_holdout=True,
+    )
+    transition = analyze_clagn_transition(
+        object_uid="ztf-target-003",
+        pre_state_lag=1.0,
+        post_state_lag=3.5,
+        pre_line_flux=6.0,
+        post_line_flux=2.0,
+        alignment_eligible=True,
+        state_transition_supported=False,
+        alignment_status="same_state_supported",
+    )
+    candidate = build_candidate(score=score, transition=transition)
+
+    assert transition.transition_detected is False
+    assert candidate.anomaly_category == "clagn_precursor_context"
+    assert candidate.evidence_bundle["state_transition_supported"] is False
+    assert candidate.evidence_bundle["alignment_status"] == "same_state_supported"

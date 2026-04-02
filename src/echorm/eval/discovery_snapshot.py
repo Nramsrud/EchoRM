@@ -53,8 +53,9 @@ def _candidate_inventory(
     discovery_payload: Mapping[str, object],
 ) -> list[JSONDict]:
     inventory: list[JSONDict] = []
-    for candidate in _dict_list(discovery_payload, "candidates"):
+    for candidate in _promoted_candidates(discovery_payload):
         evidence_bundle = _mapping_value(candidate, "evidence_bundle")
+        dataset_completeness = _mapping_value(candidate, "dataset_completeness")
         inventory.append(
             {
                 "object_uid": str(candidate.get("object_uid", "")),
@@ -64,19 +65,53 @@ def _candidate_inventory(
                 "review_priority": str(candidate.get("review_priority", "")),
                 "evidence_level": str(evidence_bundle.get("evidence_level", "")),
                 "benchmark_links": _string_list(evidence_bundle, "benchmark_links"),
+                "dataset_complete": bool(
+                    dataset_completeness.get("complete", True)
+                ),
+                "alignment_eligible": bool(
+                    dataset_completeness.get("alignment_eligible", True)
+                ),
+                "state_transition_supported": bool(
+                    dataset_completeness.get("state_transition_supported", True)
+                ),
+                "state_window_alignment": str(
+                    dataset_completeness.get("state_window_alignment", "complete")
+                ),
             }
         )
     return inventory
+
+
+def _candidate_is_promotable(candidate: Mapping[str, object]) -> bool:
+    dataset_completeness = _mapping_value(candidate, "dataset_completeness")
+    alignment_eligible = dataset_completeness.get("alignment_eligible")
+    if isinstance(alignment_eligible, bool):
+        return alignment_eligible
+    complete = dataset_completeness.get("complete")
+    if isinstance(complete, bool):
+        return complete
+    return True
+
+
+def _promoted_candidates(discovery_payload: Mapping[str, object]) -> list[JSONDict]:
+    return [
+        candidate
+        for candidate in _dict_list(discovery_payload, "candidates")
+        if _candidate_is_promotable(candidate)
+    ]
 
 
 def build_promoted_snapshot_reference(
     discovery_payload: Mapping[str, object],
 ) -> JSONDict:
     """Build the canonical candidate inventory and digests for a discovery run."""
+    source_candidates = _dict_list(discovery_payload, "candidates")
     inventory = _candidate_inventory(discovery_payload)
     order = [str(item["object_uid"]) for item in inventory]
     return {
+        "source_candidate_count": len(source_candidates),
         "candidate_count": len(inventory),
+        "excluded_incomplete_candidate_count": len(source_candidates) - len(inventory),
         "candidate_inventory": inventory,
         "candidate_inventory_digest": _hash_payload(inventory),
         "candidate_order": order,
@@ -117,12 +152,16 @@ def _package_references(
 
 
 def _snapshot_summary(reference: Mapping[str, object]) -> str:
+    summary = _mapping_value(reference, "summary")
     return (
         f"# Discovery Snapshot {reference['promoted_snapshot_id']}\n\n"
         f"- Source run: {reference['source_run_id']}\n"
         f"- Source path: {reference['source_path']}\n"
         f"- Source reference: {reference['source_reference']}\n"
+        f"- Source candidate count: {summary['source_candidate_count']}\n"
         f"- Candidate count: {reference['candidate_count']}\n"
+        "- Excluded incomplete candidate count: "
+        f"{summary['excluded_incomplete_candidate_count']}\n"
         f"- Candidate inventory digest: {reference['candidate_inventory_digest']}\n"
         f"- Candidate order digest: {reference['candidate_order_digest']}\n"
     )
@@ -200,7 +239,11 @@ def materialize_discovery_snapshot_package(
         verification=verification,
         tools=tools,
         summary={
+            "source_candidate_count": snapshot_reference["source_candidate_count"],
             "candidate_count": snapshot_reference["candidate_count"],
+            "excluded_incomplete_candidate_count": snapshot_reference[
+                "excluded_incomplete_candidate_count"
+            ],
             "package_reference_count": 2,
         },
         demonstrated=(
@@ -215,8 +258,25 @@ def materialize_discovery_snapshot_package(
             "Promotion remains bounded by the repository-local hold-out snapshot and "
             "its recorded evidence levels.",
         ),
-        warnings=(
-            "manual_review_and_real_data_rerun_still_required",
+        warnings=tuple(
+            warning
+            for warning in (
+                "manual_review_and_real_data_rerun_still_required",
+                (
+                    "incomplete_candidates_excluded_from_promotion"
+                    if int(
+                        str(snapshot_reference["excluded_incomplete_candidate_count"])
+                    )
+                    > 0
+                    else ""
+                ),
+                (
+                    "no_complete_candidates_promoted"
+                    if snapshot_reference["candidate_count"] == 0
+                    else ""
+                ),
+            )
+            if warning
         ),
         artifact_root=artifact_root,
     )

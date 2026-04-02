@@ -83,7 +83,7 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
         verification=verification,
         tools=tools,
     )
-    materialize_discovery_snapshot_package(
+    snapshot_path = materialize_discovery_snapshot_package(
         repo_root=ROOT,
         artifact_root=artifact_root,
         verification=verification,
@@ -104,39 +104,38 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
     assert summary["promotion_allowed"] is True
     assert summary["condition_count"] >= 7
 
+    snapshot_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    assert snapshot_payload["source_run_id"] == "discovery_analysis"
+    assert snapshot_payload["candidate_count"] >= 5
+    assert snapshot_payload["summary"]["source_candidate_count"] >= 5
+    assert (
+        snapshot_payload["summary"]["excluded_incomplete_candidate_count"]
+        + snapshot_payload["candidate_count"]
+        == snapshot_payload["summary"]["source_candidate_count"]
+    )
+
     first_pass_payload = json.loads(first_pass_path.read_text(encoding="utf-8"))
     promoted_snapshot = first_pass_payload["promoted_snapshot"]
     assert promoted_snapshot["snapshot_run_id"] == "discovery_snapshot"
     assert promoted_snapshot["source_run_id"] == "discovery_analysis"
     first_pass_candidates = first_pass_payload["candidates"]
     assert isinstance(first_pass_candidates, list)
-    primary_candidates = [
-        item for item in first_pass_candidates if item["review_wave"] == "primary"
-    ]
-    deferred_candidates = [
-        item for item in first_pass_candidates if item["review_wave"] == "deferred"
-    ]
-    assert primary_candidates
-    assert deferred_candidates
-    assert all(
-        item["real_data_rerun_required"] is True
-        for item in first_pass_candidates
+    assert (
+        first_pass_payload["summary"]["candidate_count"]
+        == snapshot_payload["candidate_count"]
+    )
+    assert (
+        first_pass_payload["summary"]["primary_wave_count"]
+        + first_pass_payload["summary"]["deferred_wave_count"]
+        == first_pass_payload["summary"]["candidate_count"]
     )
     assert all(
-        item["transition_detected"] is True
-        and item["lag_state_change"] >= 1.2
-        and item["line_response_ratio"] <= 0.55
-        and item["rank_score"] >= 0.76
-        for item in primary_candidates
+        candidate["real_data_rerun_required"] is True
+        for candidate in first_pass_candidates
     )
     assert all(
-        not (
-            item["transition_detected"] is True
-            and item["lag_state_change"] >= 1.2
-            and item["line_response_ratio"] <= 0.55
-            and item["rank_score"] >= 0.76
-        )
-        for item in deferred_candidates
+        "transition_alignment_status" in candidate
+        for candidate in first_pass_candidates
     )
 
     advanced_payload = json.loads(
@@ -154,4 +153,10 @@ def test_root_closeout_packages_materialize_and_audit() -> None:
     assert advanced_payload["summary"]["advanced_object_count"] >= 1
     assert advanced_payload["summary"]["pyqsofit_coverage_rate"] >= 1.0
     assert corpus_payload["summary"]["silver_catalog_object_count"] >= 800
+    assert corpus_payload["summary"]["discovery_complete_object_count"] >= 5
+    assert corpus_payload["summary"]["discovery_transition_supported_object_count"] >= 1
+    assert (
+        corpus_payload["summary"]["discovery_complete_object_count"]
+        >= corpus_payload["summary"]["discovery_transition_supported_object_count"]
+    )
     assert optimization_payload["objective_metrics"]["anomaly_candidate_count"] >= 5

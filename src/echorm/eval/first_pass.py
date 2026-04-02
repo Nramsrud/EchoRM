@@ -110,6 +110,8 @@ def _candidate_summary(candidate: Mapping[str, object]) -> str:
         f"- Next action: {candidate['next_action']}\n"
         f"- Real-data rerun required: {candidate['real_data_rerun_required']}\n"
         f"- Evidence level: {candidate['evidence_level']}\n"
+        f"- Transition alignment status: {candidate['transition_alignment_status']}\n"
+        f"- State transition supported: {candidate['state_transition_supported']}\n"
         f"- Benchmark links: {benchmark_links}\n"
         f"- Benchmark anchor ids: {anchor_links}\n"
         f"- Reason: {candidate['reason']}\n\n"
@@ -130,6 +132,7 @@ def _report_candidate_line(candidate: Mapping[str, object]) -> str:
         f"lag_state_change={_float_value(candidate, 'lag_state_change'):.3f}; "
         "line_response_ratio="
         f"{_float_value(candidate, 'line_response_ratio'):.3f}; "
+        f"alignment_status={candidate['transition_alignment_status']}; "
         f"benchmark_links={benchmark_links}; "
         f"reason={candidate['reason']}"
     )
@@ -154,7 +157,7 @@ def _review_report(
     )
     candidate_lines = "\n".join(
         _report_candidate_line(candidate) for candidate in candidates
-    )
+    ) or "- none"
     limitations = "\n".join(
         f"- {item}" for item in _string_list(payload, "limitations")
     )
@@ -174,6 +177,10 @@ def _review_report(
         f"- Promoted order digest: {promoted_snapshot['candidate_order_digest']}\n\n"
         "## Strategy\n\n"
         "- Anchor calibration precedes hold-out interpretation.\n"
+        "- Discovery snapshot promotion excludes candidates without complete "
+        "pre/post state-window coverage.\n"
+        "- Same-state aligned candidates remain explicit as precursor-only context "
+        "and cannot satisfy the transition-led wave rule.\n"
         "- Primary wave is restricted to transition-led candidates that satisfy the "
         "declared tracked-field rule.\n"
         "- Every candidate remains under a real-data rerun requirement before "
@@ -329,11 +336,19 @@ def _primary_wave_reason(candidate: Mapping[str, object]) -> str:
 
 def _deferred_reason(
     *,
+    state_transition_supported: bool,
+    transition_alignment_status: str,
     transition_detected: bool,
     lag_state_change: float,
     line_response_ratio: float,
     rank_score: float,
 ) -> str:
+    if not state_transition_supported:
+        return (
+            "Deferred because the promoted evidence records a precursor-only "
+            f"alignment status ({transition_alignment_status}) rather than a "
+            "supported changing-state pair."
+        )
     if not transition_detected:
         return (
             "Deferred because the tracked fixture-bounded evidence does not record "
@@ -351,11 +366,35 @@ def _deferred_reason(
     return "Deferred because the candidate does not satisfy the declared rule set."
 
 
-def _build_candidate_reviews(discovery_payload: Mapping[str, object]) -> list[JSONDict]:
+def _promoted_candidate_ids(promoted_snapshot: Mapping[str, object]) -> tuple[str, ...]:
+    return tuple(_string_list(promoted_snapshot, "candidate_order"))
+
+
+def _filter_discovery_candidates(
+    discovery_payload: Mapping[str, object],
+    *,
+    promoted_snapshot: Mapping[str, object],
+) -> list[JSONDict]:
+    promoted_ids = set(_promoted_candidate_ids(promoted_snapshot))
+    if not promoted_ids:
+        return []
+    return [
+        candidate
+        for candidate in _dict_list(discovery_payload, "candidates")
+        if str(candidate.get("object_uid", "")) in promoted_ids
+    ]
+
+
+def _build_candidate_reviews(
+    discovery_candidates: list[JSONDict],
+    *,
+    source_run_id: str,
+) -> list[JSONDict]:
     reviews: list[JSONDict] = []
-    for candidate in _dict_list(discovery_payload, "candidates"):
+    for candidate in discovery_candidates:
         evidence_bundle = _mapping_value(candidate, "evidence_bundle")
         transition = _mapping_value(candidate, "transition")
+        dataset_completeness = _mapping_value(candidate, "dataset_completeness")
         benchmark_links = _string_list(evidence_bundle, "benchmark_links")
         anchor_ids = sorted(
             {
@@ -368,6 +407,17 @@ def _build_candidate_reviews(discovery_payload: Mapping[str, object]) -> list[JS
         lag_state_change = _float_value(evidence_bundle, "lag_state_change")
         line_response_ratio = _float_value(evidence_bundle, "line_response_ratio")
         transition_detected = _bool_value(transition, "transition_detected")
+        state_transition_supported = _bool_value(
+            transition,
+            "state_transition_supported",
+            _bool_value(dataset_completeness, "state_transition_supported"),
+        )
+        transition_alignment_status = str(
+            transition.get(
+                "alignment_status",
+                dataset_completeness.get("state_window_alignment", "unknown"),
+            )
+        )
         primary_wave = (
             transition_detected
             and lag_state_change >= PRIMARY_WAVE_LAG_STATE_CHANGE_MIN
@@ -395,6 +445,8 @@ def _build_candidate_reviews(discovery_payload: Mapping[str, object]) -> list[JS
                     _primary_wave_reason(candidate)
                     if primary_wave
                     else _deferred_reason(
+                        state_transition_supported=state_transition_supported,
+                        transition_alignment_status=transition_alignment_status,
                         transition_detected=transition_detected,
                         lag_state_change=lag_state_change,
                         line_response_ratio=line_response_ratio,
@@ -420,10 +472,11 @@ def _build_candidate_reviews(discovery_payload: Mapping[str, object]) -> list[JS
                 "lag_state_change": lag_state_change,
                 "line_response_ratio": line_response_ratio,
                 "transition_detected": transition_detected,
+                "state_transition_supported": state_transition_supported,
+                "transition_alignment_status": transition_alignment_status,
                 "source_paths": {
                     "candidate_index": (
-                        "discovery_analysis/candidates/"
-                        f"{candidate['object_uid']}/index.json"
+                        f"{source_run_id}/candidates/{candidate['object_uid']}/index.json"
                     ),
                     "candidate_memo": str(candidate.get("memo_path", "")),
                 },
@@ -466,10 +519,8 @@ def materialize_first_pass_review_package(
         artifact_root=artifact_root,
         snapshot_run_id=snapshot_run_id,
     )
-    discovery_payload = _load_required_run(
-        artifact_root,
-        str(promoted_snapshot["source_run_id"]),
-    )
+    source_run_id = str(promoted_snapshot["source_run_id"])
+    discovery_payload = _load_required_run(artifact_root, source_run_id)
 
     anchors = _build_anchor_records(
         gold_payload=gold_payload,
@@ -478,7 +529,13 @@ def materialize_first_pass_review_package(
         efficacy_payload=efficacy_payload,
         audit_payload=audit_payload,
     )
-    candidates = _build_candidate_reviews(discovery_payload)
+    candidates = _build_candidate_reviews(
+        _filter_discovery_candidates(
+            discovery_payload,
+            promoted_snapshot=promoted_snapshot,
+        ),
+        source_run_id=source_run_id,
+    )
     primary_ids = tuple(
         str(candidate["object_uid"])
         for candidate in candidates
@@ -522,14 +579,21 @@ def materialize_first_pass_review_package(
         ),
         limitations=(
             "Current discovery inputs remain fixture-bounded and repository-local.",
+            "Only candidates present in the promoted discovery snapshot are "
+            "reviewed.",
             "Wave assignment is a governance aid for review order rather than a "
             "recalibration of discovery scoring.",
             "Findings apply to the supplied artifact root and can change when a "
             "different discovery-analysis run is materialized.",
         ),
-        warnings=(
-            "fixture_bounded_holdout_evidence",
-            "real_data_rerun_required_for_all_candidates",
+        warnings=tuple(
+            warning
+            for warning in (
+                "fixture_bounded_holdout_evidence",
+                "real_data_rerun_required_for_all_candidates",
+                "no_complete_promoted_candidates" if not candidates else "",
+            )
+            if warning
         ),
         artifact_root=artifact_root,
     )

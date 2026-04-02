@@ -22,7 +22,7 @@ releases:
     name: "Discovery, Optimization, and Scale-Out"
     status: active
     summary: "Integrate the repository-local root-closeout surface beyond the benchmark gate: advanced rigor, corpus governance, optimization, discovery analysis, analyst review, and release packaging."
-    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046", "0047", "0048", "0049"]
+    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046", "0047", "0048", "0049", "0050", "0051"]
     notes: "The root-closeout package surface is integrated on main. Current readiness, discovery, release, and first-pass review outputs remain repository-local and bounded by the evidence labels, limitations, hold-out rules, and any promoted discovery-snapshot freeze recorded in their generated packages."
   - version: "v1.0.0"
     name: "Open Science Release"
@@ -673,6 +673,32 @@ projects:
     dependencies: ["0040", "0043", "0045", "0048"]
     tags: [discovery, governance, provenance, freeze, analysis]
     notes: "This package closes the artifact-root ambiguity exposed by the first pass by requiring one promoted canonical discovery snapshot before downstream scientific interpretation is reused."
+  - id: "0050"
+    title: "Discovery Transition-Window Alignment and Eligibility"
+    summary: "Repair repository-local discovery alignment so CLAGN transition evidence is anchored to one deterministic adjacent state pair with complete photometric support."
+    status: active
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0050-discovery-transition-window-alignment-and-eligibility.md
+      plan: ark/plans/0050-discovery-transition-window-alignment-and-eligibility.md
+      review: ark/playbooks/0050-discovery-transition-window-alignment-and-eligibility.md
+    dependencies: ["0019", "0035", "0043", "0048", "0049"]
+    tags: [discovery, alignment, clagn, hold-out, provenance]
+    notes: "This package closes the state-alignment gap exposed by the canonical first pass by replacing first-state and last-state midpoint selection with deterministic adjacent-pair eligibility."
+  - id: "0051"
+    title: "Transition-Supported First-Pass Governance Correction"
+    summary: "Correct repository-local first-pass review so primary-wave admission follows repaired transition-support evidence rather than direction-specific hold-out heuristics."
+    status: active
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0051-transition-supported-first-pass-governance-correction.md
+      plan: ark/plans/0051-transition-supported-first-pass-governance-correction.md
+      review: ark/playbooks/0051-transition-supported-first-pass-governance-correction.md
+    dependencies: ["0035", "0043", "0048", "0049", "0050"]
+    tags: [governance, discovery, review, clagn, scientific-rigor]
+    notes: "This package narrows first-pass wave assignment to the repaired transition-support contract while preserving repository-local scope, manual review, and real-data-rerun requirements."
 ```
 ## Authority Notes
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -8,6 +9,7 @@ from echorm.eval.benchmark_corpus import BenchmarkObject
 from echorm.eval.literal_corpora import (
     _download_ztf_lightcurve,
     _read_ztf_rows,
+    _select_discovery_state_alignment,
     build_interpolated_series,
     build_measured_series,
 )
@@ -149,3 +151,105 @@ def test_ztf_download_falls_back_to_offline_rows_on_timeout(
     assert len(rows) == 8
     assert min(float(str(row["mjd"])) for row in rows) < 59000.0
     assert max(float(str(row["mjd"])) for row in rows) > 59000.0
+
+
+def test_discovery_alignment_prefers_supported_changing_state_pair() -> None:
+    state_rows = [
+        {
+            "state": "A",
+            "mjd": 10,
+            "zspec": 0.1,
+            "l5100": 1.0,
+            "lhb": 2.0,
+            "lmgii": 3.0,
+        },
+        {
+            "state": "B",
+            "mjd": 20,
+            "zspec": 0.1,
+            "l5100": 1.1,
+            "lhb": 2.1,
+            "lmgii": 3.1,
+        },
+        {
+            "state": "C",
+            "mjd": 30,
+            "zspec": 0.1,
+            "l5100": 1.2,
+            "lhb": 2.2,
+            "lmgii": 3.2,
+        },
+    ]
+    raw_rows = [
+        {"mjd": 12.0, "mag": 18.0, "magerr": 0.1, "filtercode": "zg"},
+        {"mjd": 13.0, "mag": 18.1, "magerr": 0.1, "filtercode": "zr"},
+        {"mjd": 18.0, "mag": 18.2, "magerr": 0.1, "filtercode": "zg"},
+        {"mjd": 19.0, "mag": 18.3, "magerr": 0.1, "filtercode": "zr"},
+        {"mjd": 22.0, "mag": 18.4, "magerr": 0.1, "filtercode": "zg"},
+        {"mjd": 23.0, "mag": 18.5, "magerr": 0.1, "filtercode": "zr"},
+        {"mjd": 26.0, "mag": 18.6, "magerr": 0.1, "filtercode": "zg"},
+        {"mjd": 27.0, "mag": 18.7, "magerr": 0.1, "filtercode": "zr"},
+        {"mjd": 28.0, "mag": 18.8, "magerr": 0.1, "filtercode": "zg"},
+        {"mjd": 29.0, "mag": 18.9, "magerr": 0.1, "filtercode": "zr"},
+    ]
+
+    alignment = _select_discovery_state_alignment(state_rows, raw_rows)
+    selected_pair = cast(dict[str, object], alignment["selected_pair"])
+    pre_epoch = cast(dict[str, object], selected_pair["pre_epoch"])
+    post_epoch = cast(dict[str, object], selected_pair["post_epoch"])
+
+    assert alignment["alignment_eligible"] is True
+    assert alignment["state_transition_supported"] is True
+    assert alignment["alignment_status"] == "changing_state_supported"
+    assert pre_epoch["mjd"] == 20
+    assert post_epoch["mjd"] == 30
+    assert selected_pair["support_score"] == 2
+
+
+def test_discovery_alignment_falls_back_to_same_state_supported_pair() -> None:
+    state_rows = [
+        {
+            "state": "A",
+            "mjd": 10,
+            "zspec": 0.1,
+            "l5100": 1.0,
+            "lhb": 2.0,
+            "lmgii": 3.0,
+        },
+        {
+            "state": "A",
+            "mjd": 20,
+            "zspec": 0.1,
+            "l5100": 1.1,
+            "lhb": 2.1,
+            "lmgii": 3.1,
+        },
+        {
+            "state": "B",
+            "mjd": 30,
+            "zspec": 0.1,
+            "l5100": 1.2,
+            "lhb": 2.2,
+            "lmgii": 3.2,
+        },
+    ]
+    raw_rows = [
+        {"mjd": 12.0, "mag": 18.0, "magerr": 0.1, "filtercode": "zg"},
+        {"mjd": 13.0, "mag": 18.1, "magerr": 0.1, "filtercode": "zr"},
+        {"mjd": 18.0, "mag": 18.2, "magerr": 0.1, "filtercode": "zg"},
+        {"mjd": 19.0, "mag": 18.3, "magerr": 0.1, "filtercode": "zr"},
+    ]
+
+    alignment = _select_discovery_state_alignment(state_rows, raw_rows)
+    selected_pair = cast(dict[str, object], alignment["selected_pair"])
+    pre_epoch = cast(dict[str, object], selected_pair["pre_epoch"])
+    post_epoch = cast(dict[str, object], selected_pair["post_epoch"])
+
+    assert alignment["alignment_eligible"] is True
+    assert alignment["state_transition_supported"] is False
+    assert alignment["alignment_status"] == "same_state_supported"
+    assert alignment["state_transition_exclusion_reason"] == (
+        "no_eligible_adjacent_changing_state_pair"
+    )
+    assert pre_epoch["mjd"] == 10
+    assert post_epoch["mjd"] == 20

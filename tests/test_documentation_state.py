@@ -52,6 +52,8 @@ def test_repository_local_package_specs_preserve_bounded_scope() -> None:
         "ark/specs/0045-literal-root-authority-conformance-audit-final-readiness-gate.md",
         "ark/specs/0048-benchmark-governed-first-pass-review.md",
         "ark/specs/0049-canonical-discovery-snapshot-promotion-freeze.md",
+        "ark/specs/0050-discovery-transition-window-alignment-and-eligibility.md",
+        "ark/specs/0051-transition-supported-first-pass-governance-correction.md",
     ):
         assert "repository-local" in _read(path)
 
@@ -89,3 +91,66 @@ def test_canonical_snapshot_project_entry_has_spec_and_review() -> None:
     )
     assert "Blocking Findings" in review_0049
     assert "divergence" in plan_0049
+
+
+def test_transition_alignment_project_entry_has_spec_plan_and_review() -> None:
+    projectlist = _read("ark/projectlist.md")
+    review_0050 = _read(
+        "ark/playbooks/0050-discovery-transition-window-alignment-and-eligibility.md"
+    )
+    spec_0050 = _read(
+        "ark/specs/0050-discovery-transition-window-alignment-and-eligibility.md"
+    )
+    plan_0050 = _read(
+        "ark/plans/0050-discovery-transition-window-alignment-and-eligibility.md"
+    )
+
+    assert 'id: "0050"' in projectlist
+    assert (
+        "ark/specs/0050-discovery-transition-window-alignment-and-eligibility.md"
+        in projectlist
+    )
+    assert (
+        "ark/plans/0050-discovery-transition-window-alignment-and-eligibility.md"
+        in projectlist
+    )
+    assert (
+        "ark/playbooks/0050-discovery-transition-window-alignment-and-eligibility.md"
+        in projectlist
+    )
+    assert "complete photometric support" in spec_0050
+    assert "Pair-choice check" in review_0050
+    assert "transition gating" in plan_0050
+    assert "Plan Coverage Findings" in review_0050
+
+
+def test_first_pass_governance_correction_has_spec_and_review() -> None:
+    projectlist = _read("ark/projectlist.md")
+    spec_0051 = _read(
+        "ark/specs/0051-transition-supported-first-pass-governance-correction.md"
+    )
+    plan_0051 = _read(
+        "ark/plans/0051-transition-supported-first-pass-governance-correction.md"
+    )
+    review_0051 = _read(
+        "ark/playbooks/0051-transition-supported-first-pass-governance-correction.md"
+    )
+
+    assert 'id: "0051"' in projectlist
+    assert (
+        "ark/specs/0051-transition-supported-first-pass-governance-correction.md"
+        in projectlist
+    )
+    assert (
+        "ark/playbooks/0051-transition-supported-first-pass-governance-correction.md"
+        in projectlist
+    )
+    assert (
+        "ark/plans/0051-transition-supported-first-pass-governance-correction.md"
+        in projectlist
+    )
+    assert "state_transition_supported=true" in spec_0051
+    assert "supported transitions enter the primary wave" in plan_0051
+    assert "Directionality check" in review_0051
+    assert "Blocking Findings" in review_0051
+    assert "Plan Coverage Findings" in review_0051

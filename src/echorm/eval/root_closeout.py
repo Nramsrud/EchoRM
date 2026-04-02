@@ -304,6 +304,28 @@ def _discovery_object_summary(record: DiscoveryHoldoutRecord, run_id: str) -> JS
         ),
         "anomaly_category": record.anomaly_category,
         "holdout_policy": record.holdout_policy,
+        "dataset_complete": bool(record.query_params.get("dataset_complete", True)),
+        "alignment_eligible": bool(
+            record.query_params.get("alignment_eligible", True)
+        ),
+        "state_transition_supported": bool(
+            record.query_params.get("state_transition_supported", True)
+        ),
+        "state_window_alignment": str(
+            record.query_params.get("state_window_alignment", "complete")
+        ),
+        "alignment_exclusion_reason": str(
+            record.query_params.get("alignment_exclusion_reason", "")
+        ),
+        "state_transition_exclusion_reason": str(
+            record.query_params.get("state_transition_exclusion_reason", "")
+        ),
+        "pre_window_row_count": int(
+            str(record.query_params.get("pre_window_row_count", 0))
+        ),
+        "post_window_row_count": int(
+            str(record.query_params.get("post_window_row_count", 0))
+        ),
         "artifact_paths": _artifact_paths(run_id, "objects", record.object_uid),
         "notes": list(record.notes),
     }
@@ -578,6 +600,14 @@ def materialize_corpus_scaleout_package(
             discovery_manifest,
         )
     ]
+    discovery_complete_count = sum(
+        bool(record.query_params.get("dataset_complete", True))
+        for record in discovery_records
+    )
+    discovery_transition_supported_count = sum(
+        bool(record.query_params.get("state_transition_supported", True))
+        for record in discovery_records
+    )
     payload = _package_header(
         run_id=run_id,
         profile=profile,
@@ -601,6 +631,15 @@ def materialize_corpus_scaleout_package(
             "silver_object_count": silver_manifest["object_count"],
             "silver_catalog_object_count": silver_catalog_manifest["object_count"],
             "discovery_object_count": discovery_manifest["object_count"],
+            "discovery_complete_object_count": discovery_complete_count,
+            "discovery_incomplete_object_count": len(discovery_records)
+            - discovery_complete_count,
+            "discovery_transition_supported_object_count": (
+                discovery_transition_supported_count
+            ),
+            "discovery_precursor_object_count": (
+                discovery_complete_count - discovery_transition_supported_count
+            ),
             "manifest_count": 4,
             "release_count": len(
                 discovery_manifest["release_ids"]
@@ -623,7 +662,11 @@ def materialize_corpus_scaleout_package(
             "The package records corpus governance, not full scientific "
             "interpretation.",
         ),
-        warnings=(),
+        warnings=(
+            ()
+            if discovery_complete_count == len(discovery_records)
+            else ("incomplete_discovery_state_windows_present",)
+        ),
         artifact_root=artifact_root,
     )
     payload["objects"] = object_summaries
@@ -1347,6 +1390,8 @@ def materialize_discovery_analysis_package(
     candidates: list[JSONDict] = []
     category_counts: dict[str, int] = {}
     raw_lightcurve_count = 0
+    complete_candidate_count = 0
+    transition_supported_candidate_count = 0
     for record in discovery_records:
         raw_lightcurve_path = Path(
             str(record.query_params.get("raw_lightcurve_path", ""))
@@ -1392,6 +1437,15 @@ def materialize_discovery_analysis_package(
             post_state_lag=record.post_state_lag,
             pre_line_flux=record.pre_line_flux,
             post_line_flux=record.post_line_flux,
+            alignment_eligible=bool(
+                record.query_params.get("alignment_eligible", True)
+            ),
+            state_transition_supported=bool(
+                record.query_params.get("state_transition_supported", True)
+            ),
+            alignment_status=str(
+                record.query_params.get("state_window_alignment", "complete")
+            ),
             evidence_level=record.evidence_level,
         )
         candidate = build_candidate(
@@ -1466,6 +1520,81 @@ def materialize_discovery_analysis_package(
             ),
             "gallery": f"{run_id}/candidates/{candidate.object_uid}/gallery.md",
         }
+        dataset_complete = bool(record.query_params.get("dataset_complete", True))
+        candidate_payload["dataset_completeness"] = {
+            "complete": dataset_complete,
+            "alignment_eligible": bool(
+                record.query_params.get("alignment_eligible", dataset_complete)
+            ),
+            "state_transition_supported": bool(
+                record.query_params.get("state_transition_supported", True)
+            ),
+            "state_window_alignment": str(
+                record.query_params.get("state_window_alignment", "complete")
+            ),
+            "alignment_exclusion_reason": str(
+                record.query_params.get("alignment_exclusion_reason", "")
+            ),
+            "state_transition_exclusion_reason": str(
+                record.query_params.get("state_transition_exclusion_reason", "")
+            ),
+            "split_mjd": float(str(record.query_params.get("split_mjd", 0.0))),
+            "lightcurve_min_mjd": float(
+                str(record.query_params.get("lightcurve_min_mjd", 0.0))
+            ),
+            "lightcurve_max_mjd": float(
+                str(record.query_params.get("lightcurve_max_mjd", 0.0))
+            ),
+            "pre_window_row_count": int(
+                str(record.query_params.get("pre_window_row_count", 0))
+            ),
+            "post_window_row_count": int(
+                str(record.query_params.get("post_window_row_count", 0))
+            ),
+            "pre_window_g_row_count": int(
+                str(record.query_params.get("pre_window_g_row_count", 0))
+            ),
+            "pre_window_r_row_count": int(
+                str(record.query_params.get("pre_window_r_row_count", 0))
+            ),
+            "post_window_g_row_count": int(
+                str(record.query_params.get("post_window_g_row_count", 0))
+            ),
+            "post_window_r_row_count": int(
+                str(record.query_params.get("post_window_r_row_count", 0))
+            ),
+            "state_window_support_score": int(
+                str(record.query_params.get("state_window_support_score", 0))
+            ),
+            "pre_window_gap_days": float(
+                str(record.query_params.get("pre_window_gap_days", 0.0))
+            ),
+            "post_window_gap_days": float(
+                str(record.query_params.get("post_window_gap_days", 0.0))
+            ),
+            "raw_lightcurve_source": str(
+                record.query_params.get("raw_lightcurve_source", "")
+            ),
+        }
+        candidate_payload["transition_alignment"] = {
+            "state_sequence": _dict_list(record.query_params, "state_sequence"),
+            "selected_pair": _mapping_value(record.query_params, "selected_pair"),
+            "alignment_status": str(
+                record.query_params.get("state_window_alignment", "complete")
+            ),
+            "alignment_eligible": bool(
+                record.query_params.get("alignment_eligible", dataset_complete)
+            ),
+            "state_transition_supported": bool(
+                record.query_params.get("state_transition_supported", True)
+            ),
+            "alignment_exclusion_reason": str(
+                record.query_params.get("alignment_exclusion_reason", "")
+            ),
+            "state_transition_exclusion_reason": str(
+                record.query_params.get("state_transition_exclusion_reason", "")
+            ),
+        }
         candidate_payload["timeline_row_count"] = len(timeline_rows)
         candidates.append(candidate_payload)
         _write_json(candidate_dir / "index.json", candidate_payload)
@@ -1473,6 +1602,10 @@ def materialize_discovery_analysis_package(
         _write_markdown(candidate_dir / "summary.md", memo)
         if timeline_rows:
             raw_lightcurve_count += 1
+        if dataset_complete:
+            complete_candidate_count += 1
+        if bool(record.query_params.get("state_transition_supported", True)):
+            transition_supported_candidate_count += 1
     payload = _package_header(
         run_id=run_id,
         profile=profile,
@@ -1486,6 +1619,14 @@ def materialize_discovery_analysis_package(
         tools=tool_records,
         summary={
             "candidate_count": len(candidates),
+            "complete_candidate_count": complete_candidate_count,
+            "incomplete_candidate_count": len(candidates) - complete_candidate_count,
+            "transition_supported_candidate_count": (
+                transition_supported_candidate_count
+            ),
+            "precursor_candidate_count": (
+                complete_candidate_count - transition_supported_candidate_count
+            ),
             "category_count": len(category_counts),
             "raw_lightcurve_count": raw_lightcurve_count,
             "clagn_transition_count": sum(
@@ -1510,7 +1651,11 @@ def materialize_discovery_analysis_package(
             "Current discovery scoring is bounded by the frozen public hold-out "
             "slice and linked catalog transitions.",
         ),
-        warnings=(),
+        warnings=(
+            ()
+            if complete_candidate_count == len(candidates)
+            else ("incomplete_state_window_candidates_present",)
+        ),
         artifact_root=artifact_root,
     )
     payload["candidates"] = candidates

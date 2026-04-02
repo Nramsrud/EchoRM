@@ -13,7 +13,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..calibrate.normalize import science_normalize, sonification_normalize
 from ..calibrate.time import rest_frame_mjd
@@ -619,6 +619,240 @@ def _band_lag_proxy(rows: list[dict[str, object]]) -> float:
     return round(_activity_centroid(r_rows) - _activity_centroid(g_rows), 3)
 
 
+def _band_support_counts(rows: list[dict[str, object]]) -> dict[str, int]:
+    return {
+        "g": sum(str(row["filtercode"]).endswith("g") for row in rows),
+        "r": sum(str(row["filtercode"]).endswith("r") for row in rows),
+    }
+
+
+def _state_window_alignment(
+    rows: list[dict[str, object]],
+    *,
+    split_mjd: float,
+) -> dict[str, object]:
+    if not rows:
+        return {
+            "complete": False,
+            "status": "missing_lightcurve_rows",
+            "pre_window_row_count": 0,
+            "post_window_row_count": 0,
+            "lightcurve_min_mjd": 0.0,
+            "lightcurve_max_mjd": 0.0,
+            "split_within_lightcurve_span": False,
+            "pre_window_gap_days": 0.0,
+            "post_window_gap_days": 0.0,
+            "pre_window_g_row_count": 0,
+            "pre_window_r_row_count": 0,
+            "post_window_g_row_count": 0,
+            "post_window_r_row_count": 0,
+            "state_window_support_score": 0,
+            "exclusion_reason": "missing_lightcurve_rows",
+        }
+    mjds = [_as_float(row["mjd"]) for row in rows]
+    min_mjd = min(mjds)
+    max_mjd = max(mjds)
+    pre_rows = [row for row in rows if _as_float(row["mjd"]) <= split_mjd]
+    post_rows = [row for row in rows if _as_float(row["mjd"]) > split_mjd]
+    pre_count = len(pre_rows)
+    post_count = len(post_rows)
+    pre_support = _band_support_counts(pre_rows)
+    post_support = _band_support_counts(post_rows)
+    split_within_span = min_mjd <= split_mjd < max_mjd
+    missing_reasons: list[str] = []
+    if pre_count == 0:
+        missing_reasons.append("missing_pre_window")
+    if post_count == 0:
+        missing_reasons.append("missing_post_window")
+    if pre_count > 0 and pre_support["g"] == 0:
+        missing_reasons.append("missing_pre_g_support")
+    if pre_count > 0 and pre_support["r"] == 0:
+        missing_reasons.append("missing_pre_r_support")
+    if post_count > 0 and post_support["g"] == 0:
+        missing_reasons.append("missing_post_g_support")
+    if post_count > 0 and post_support["r"] == 0:
+        missing_reasons.append("missing_post_r_support")
+    support_score = min(
+        pre_support["g"],
+        pre_support["r"],
+        post_support["g"],
+        post_support["r"],
+    )
+    complete = split_within_span and support_score > 0
+    if complete:
+        status = "complete"
+    elif pre_count == 0:
+        status = "missing_pre_window"
+    elif post_count == 0:
+        status = "missing_post_window"
+    else:
+        status = "missing_band_support"
+    return {
+        "complete": complete,
+        "status": status,
+        "pre_window_row_count": pre_count,
+        "post_window_row_count": post_count,
+        "lightcurve_min_mjd": round(min_mjd, 3),
+        "lightcurve_max_mjd": round(max_mjd, 3),
+        "split_within_lightcurve_span": split_within_span,
+        "pre_window_gap_days": round(max(0.0, min_mjd - split_mjd), 3),
+        "post_window_gap_days": round(max(0.0, split_mjd - max_mjd), 3),
+        "pre_window_g_row_count": pre_support["g"],
+        "pre_window_r_row_count": pre_support["r"],
+        "post_window_g_row_count": post_support["g"],
+        "post_window_r_row_count": post_support["r"],
+        "state_window_support_score": support_score,
+        "exclusion_reason": ";".join(missing_reasons),
+    }
+
+
+def _state_sequence_record(row: dict[str, object]) -> dict[str, object]:
+    return {
+        "mjd": _as_int(row["mjd"]),
+        "state": str(row["state"]),
+        "zspec": _as_float(row["zspec"]),
+        "l5100": _as_float(row["l5100"]),
+        "lhb": _as_float(row["lhb"]),
+        "lmgii": _as_float(row["lmgii"]),
+    }
+
+
+def _fallback_split_mjd(
+    state_rows: list[dict[str, object]],
+) -> float:
+    adjacent_pairs = list(zip(state_rows, state_rows[1:], strict=False))
+    if not adjacent_pairs:
+        return (
+            _as_float(state_rows[0]["mjd"]) + _as_float(state_rows[-1]["mjd"])
+        ) / 2.0
+    for first, second in adjacent_pairs:
+        if str(first["state"]) != str(second["state"]):
+            return (_as_float(first["mjd"]) + _as_float(second["mjd"])) / 2.0
+    first, second = adjacent_pairs[0]
+    return (_as_float(first["mjd"]) + _as_float(second["mjd"])) / 2.0
+
+
+def _adjacent_state_pair_candidates(
+    state_rows: list[dict[str, object]],
+    raw_rows: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    candidates: list[dict[str, object]] = []
+    for pre_epoch, post_epoch in zip(state_rows, state_rows[1:], strict=False):
+        split_mjd = (_as_float(pre_epoch["mjd"]) + _as_float(post_epoch["mjd"])) / 2.0
+        alignment = _state_window_alignment(raw_rows, split_mjd=split_mjd)
+        changing_state = str(pre_epoch["state"]) != str(post_epoch["state"])
+        alignment_eligible = bool(alignment["complete"])
+        alignment_status = (
+            "changing_state_supported"
+            if alignment_eligible and changing_state
+            else (
+                "same_state_supported"
+                if alignment_eligible
+                else (
+                    "changing_state_incomplete"
+                    if changing_state
+                    else "same_state_incomplete"
+                )
+            )
+        )
+        candidates.append(
+            {
+                "pre_epoch": _state_sequence_record(pre_epoch),
+                "post_epoch": _state_sequence_record(post_epoch),
+                "split_mjd": round(split_mjd, 3),
+                "changing_state": changing_state,
+                "alignment_eligible": alignment_eligible,
+                "state_transition_supported": alignment_eligible and changing_state,
+                "alignment_status": alignment_status,
+                "support_score": _as_int(alignment["state_window_support_score"]),
+                "alignment": alignment,
+            }
+        )
+    return candidates
+
+
+def _select_discovery_state_alignment(
+    state_rows: list[dict[str, object]],
+    raw_rows: list[dict[str, object]],
+) -> dict[str, object]:
+    state_sequence = [_state_sequence_record(row) for row in state_rows]
+    candidates = _adjacent_state_pair_candidates(state_rows, raw_rows)
+    if not candidates:
+        return {
+            "state_sequence": state_sequence,
+            "selected_pair": {},
+            "alignment_status": "no_adjacent_pair",
+            "alignment_eligible": False,
+            "state_transition_supported": False,
+            "alignment_exclusion_reason": "no_adjacent_pair",
+            "state_transition_exclusion_reason": "alignment_ineligible",
+        }
+
+    def _selection_key(candidate: dict[str, object]) -> tuple[int, int, float]:
+        if bool(candidate["alignment_eligible"]) and bool(candidate["changing_state"]):
+            tier = 0
+        elif bool(candidate["alignment_eligible"]):
+            tier = 1
+        elif bool(candidate["changing_state"]):
+            tier = 2
+        else:
+            tier = 3
+        return (
+            tier,
+            -_as_int(candidate["support_score"]),
+            _as_float(candidate["split_mjd"]),
+        )
+
+    selected = sorted(candidates, key=_selection_key)[0]
+    alignment_eligible = bool(selected["alignment_eligible"])
+    state_transition_supported = bool(selected["state_transition_supported"])
+    selected_pre_epoch = cast(dict[str, object], selected["pre_epoch"])
+    selected_post_epoch = cast(dict[str, object], selected["post_epoch"])
+    selected_alignment = cast(dict[str, object], selected["alignment"])
+    selected_pair = {
+        "pre_epoch": dict(selected_pre_epoch),
+        "post_epoch": dict(selected_post_epoch),
+        "split_mjd": _as_float(selected["split_mjd"]),
+        "changing_state": bool(selected["changing_state"]),
+        "alignment_eligible": alignment_eligible,
+        "state_transition_supported": state_transition_supported,
+        "alignment_status": str(selected["alignment_status"]),
+        "support_score": _as_int(selected["support_score"]),
+        **{
+            str(key): value
+            for key, value in selected_alignment.items()
+        },
+    }
+    return {
+        "state_sequence": state_sequence,
+        "selected_pair": selected_pair,
+        "alignment_status": str(selected["alignment_status"]),
+        "alignment_eligible": alignment_eligible,
+        "state_transition_supported": state_transition_supported,
+        "alignment_exclusion_reason": (
+            ""
+            if alignment_eligible
+            else (
+                "no_eligible_adjacent_pair"
+                + (
+                    f":{selected_pair['exclusion_reason']}"
+                    if str(selected_pair.get("exclusion_reason", ""))
+                    else ""
+                )
+            )
+        ),
+        "state_transition_exclusion_reason": (
+            ""
+            if state_transition_supported
+            else (
+                "no_eligible_adjacent_changing_state_pair"
+                if alignment_eligible
+                else "alignment_ineligible"
+            )
+        ),
+    }
+
+
 def load_literal_gold_benchmark_objects(repo_root: Path) -> tuple[BenchmarkObject, ...]:
     """Load the real AGN Watch gold benchmark pair used in root closeout."""
     specs = (
@@ -1065,14 +1299,13 @@ def load_literal_discovery_holdout_records(
             continue
         rows.sort(key=lambda item: _as_int(item["mjd"]))
         first = rows[0]
-        last = rows[-1]
         object_uid = sdss_name.lower().replace("j", "clq-")
         raw_path, used_offline_fallback = _download_ztf_lightcurve(
             repo_root,
             object_uid=object_uid,
             ra_deg=_as_float(first["ra_deg"]),
             dec_deg=_as_float(first["dec_deg"]),
-            fallback_split_mjd=(_as_float(first["mjd"]) + _as_float(last["mjd"])) / 2.0,
+            fallback_split_mjd=_fallback_split_mjd(rows),
         )
         raw_rows = _read_ztf_rows(raw_path)
         if not raw_rows:
@@ -1093,16 +1326,33 @@ def load_literal_discovery_holdout_records(
             / "lightcurve.normalized.parquet",
             normalized_rows,
         )
-        split_mjd = (_as_float(first["mjd"]) + _as_float(last["mjd"])) / 2.0
+        alignment_record = _select_discovery_state_alignment(rows, raw_rows)
+        selected_pair = cast(dict[str, object], alignment_record["selected_pair"])
+        split_mjd = _as_float(selected_pair.get("split_mjd", 0.0))
         pre_rows = [row for row in raw_rows if _as_float(row["mjd"]) <= split_mjd]
         post_rows = [row for row in raw_rows if _as_float(row["mjd"]) > split_mjd]
+        selected_pre_epoch = cast(
+            dict[str, object],
+            selected_pair.get("pre_epoch", {}),
+        )
+        selected_post_epoch = cast(
+            dict[str, object],
+            selected_pair.get("post_epoch", {}),
+        )
+        state_window_alignment = {
+            str(key): value for key, value in selected_pair.items()
+        }
         pre_state_lag = _band_lag_proxy(pre_rows)
         post_state_lag = _band_lag_proxy(post_rows)
         pre_mean = _weighted_mean(pre_rows)
         post_mean = _weighted_mean(post_rows)
         continuum_shift = abs(post_mean - pre_mean)
-        line_shift = abs(_as_float(last["lhb"]) - _as_float(first["lhb"])) + abs(
-            _as_float(last["lmgii"]) - _as_float(first["lmgii"])
+        line_shift = abs(
+            _as_float(selected_post_epoch.get("lhb", 0.0))
+            - _as_float(selected_pre_epoch.get("lhb", 0.0))
+        ) + abs(
+            _as_float(selected_post_epoch.get("lmgii", 0.0))
+            - _as_float(selected_pre_epoch.get("lmgii", 0.0))
         )
         pre_scatter = _median(
             [abs(float(str(row["mag"])) - pre_mean) for row in pre_rows]
@@ -1131,11 +1381,13 @@ def load_literal_discovery_holdout_records(
                 pre_state_lag=pre_state_lag,
                 post_state_lag=post_state_lag,
                 pre_line_flux=round(
-                    _as_float(first["lhb"]) + _as_float(first["lmgii"]),
+                    _as_float(selected_pre_epoch.get("lhb", 0.0))
+                    + _as_float(selected_pre_epoch.get("lmgii", 0.0)),
                     3,
                 ),
                 post_line_flux=round(
-                    _as_float(last["lhb"]) + _as_float(last["lmgii"]),
+                    _as_float(selected_post_epoch.get("lhb", 0.0))
+                    + _as_float(selected_post_epoch.get("lmgii", 0.0)),
                     3,
                 ),
                 query_params={
@@ -1153,6 +1405,61 @@ def load_literal_discovery_holdout_records(
                     "raw_lightcurve_row_count": len(raw_rows),
                     "split_mjd": split_mjd,
                     "release_id": "ztf-dr24",
+                    "dataset_complete": bool(alignment_record["alignment_eligible"]),
+                    "alignment_eligible": bool(
+                        alignment_record["alignment_eligible"]
+                    ),
+                    "state_transition_supported": bool(
+                        alignment_record["state_transition_supported"]
+                    ),
+                    "state_window_alignment": str(
+                        alignment_record["alignment_status"]
+                    ),
+                    "alignment_exclusion_reason": str(
+                        alignment_record["alignment_exclusion_reason"]
+                    ),
+                    "state_transition_exclusion_reason": str(
+                        alignment_record["state_transition_exclusion_reason"]
+                    ),
+                    "state_sequence": list(
+                        cast(
+                            list[dict[str, object]],
+                            alignment_record["state_sequence"],
+                        )
+                    ),
+                    "selected_pair": dict(selected_pair),
+                    "split_within_lightcurve_span": bool(
+                        state_window_alignment["split_within_lightcurve_span"]
+                    ),
+                    "lightcurve_min_mjd": state_window_alignment["lightcurve_min_mjd"],
+                    "lightcurve_max_mjd": state_window_alignment["lightcurve_max_mjd"],
+                    "pre_window_row_count": int(
+                        str(state_window_alignment["pre_window_row_count"])
+                    ),
+                    "post_window_row_count": int(
+                        str(state_window_alignment["post_window_row_count"])
+                    ),
+                    "pre_window_g_row_count": int(
+                        str(state_window_alignment["pre_window_g_row_count"])
+                    ),
+                    "pre_window_r_row_count": int(
+                        str(state_window_alignment["pre_window_r_row_count"])
+                    ),
+                    "post_window_g_row_count": int(
+                        str(state_window_alignment["post_window_g_row_count"])
+                    ),
+                    "post_window_r_row_count": int(
+                        str(state_window_alignment["post_window_r_row_count"])
+                    ),
+                    "state_window_support_score": int(
+                        str(state_window_alignment["support_score"])
+                    ),
+                    "pre_window_gap_days": state_window_alignment[
+                        "pre_window_gap_days"
+                    ],
+                    "post_window_gap_days": state_window_alignment[
+                        "post_window_gap_days"
+                    ],
                     "raw_lightcurve_source": (
                         "live_irsa_download"
                         if not used_offline_fallback
@@ -1170,6 +1477,19 @@ def load_literal_discovery_holdout_records(
                         "offline fallback used after IRSA timeout"
                         if used_offline_fallback
                         else "live IRSA lightcurve used"
+                    ),
+                    (
+                        "state-window alignment="
+                        f"{alignment_record['alignment_status']}"
+                    ),
+                    (
+                        "selected adjacent pair="
+                        f"{selected_pre_epoch.get('mjd', 0)}->"
+                        f"{selected_post_epoch.get('mjd', 0)}"
+                    ),
+                    (
+                        "state-transition-supported="
+                        f"{alignment_record['state_transition_supported']}"
                     ),
                 ),
             )

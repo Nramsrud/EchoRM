@@ -36,7 +36,9 @@ def test_discovery_snapshot_promotion_is_complete_and_deterministic(
 
     payload = json.loads(index_path.read_text(encoding="utf-8"))
     assert payload["package_type"] == "discovery_snapshot"
+    assert payload["summary"]["source_candidate_count"] == 5
     assert payload["candidate_count"] == 5
+    assert payload["summary"]["excluded_incomplete_candidate_count"] == 0
     assert payload["source_run_id"] == "discovery_analysis"
     assert payload["corpus_reference"]["run_id"] == "corpus_scaleout"
     assert len(payload["candidate_inventory"]) == 5
@@ -58,6 +60,47 @@ def test_discovery_snapshot_promotion_is_complete_and_deterministic(
         validated["candidate_inventory_digest"]
         == payload["candidate_inventory_digest"]
     )
+
+
+def test_discovery_snapshot_excludes_incomplete_candidates(tmp_path: Path) -> None:
+    source_root = ROOT / "artifacts" / "benchmark_runs"
+    for run_id in ("corpus_scaleout", "discovery_analysis"):
+        _copy_run(source_root, tmp_path, run_id)
+
+    discovery_path = tmp_path / "discovery_analysis" / "index.json"
+    discovery_payload = json.loads(discovery_path.read_text(encoding="utf-8"))
+    for index, candidate in enumerate(discovery_payload["candidates"]):
+        candidate["dataset_completeness"] = {
+            "complete": index < 2,
+            "alignment_eligible": index < 2,
+            "state_transition_supported": index == 0,
+            "state_window_alignment": (
+                "changing_state_supported"
+                if index == 0
+                else (
+                    "same_state_supported"
+                    if index == 1
+                    else "changing_state_incomplete"
+                )
+            ),
+        }
+    discovery_path.write_text(
+        json.dumps(discovery_payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    index_path = materialize_discovery_snapshot_package(
+        repo_root=ROOT,
+        artifact_root=tmp_path,
+    )
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+
+    assert payload["summary"]["source_candidate_count"] == 5
+    assert payload["candidate_count"] == 2
+    assert payload["summary"]["excluded_incomplete_candidate_count"] == 3
+    assert payload["candidate_order"] == ["ztf-holdout-001", "ztf-holdout-002"]
+    assert "incomplete_candidates_excluded_from_promotion" in payload["warnings"]
+    assert payload["candidate_inventory"][1]["state_transition_supported"] is False
 
 
 def test_first_pass_rejects_unpromoted_discovery_divergence(tmp_path: Path) -> None:
