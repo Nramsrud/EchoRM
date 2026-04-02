@@ -12,9 +12,11 @@ def test_ci_limits_pull_requests_to_essential_validation() -> None:
 
     assert "workflow_dispatch:" in workflow
     assert "pr-essentials:" in workflow
+    assert "pr-merge-gate:" in workflow
     assert "if: github.event_name == 'pull_request'" in workflow
     assert "if: github.event_name != 'pull_request'" in workflow
     assert "name: PR Essentials" in workflow
+    assert "name: Lint, Typecheck, Test" in workflow
     assert "tests/test_local_validation_gate.py" in workflow
 
 

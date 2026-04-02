@@ -76,6 +76,20 @@ jobs:
       - name: Workflow dry-run
         run: snakemake --snakefile workflows/Snakefile --dry-run
 
+  pr-merge-gate:
+    name: Lint, Typecheck, Test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - quality
+      - pr-essentials
+
+    steps:
+      - name: Confirm required PR gate contexts passed
+        run: |
+          echo "quality and PR essentials completed successfully"
+
   scientific-validation:
     name: Scientific Validation
     if: github.event_name != 'pull_request'
