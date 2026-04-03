@@ -22,7 +22,7 @@ releases:
     name: "Discovery, Optimization, and Scale-Out"
     status: active
     summary: "Integrate the repository-local root-closeout surface beyond the benchmark gate: advanced rigor, corpus governance, optimization, discovery analysis, analyst review, and release packaging."
-    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046", "0047", "0048", "0049", "0050", "0051"]
+    projects: ["0018", "0019", "0031", "0032", "0033", "0034", "0035", "0036", "0038", "0039", "0040", "0041", "0042", "0043", "0046", "0047", "0048", "0049", "0050", "0051", "0052"]
     notes: "The root-closeout package surface is integrated on main. Current readiness, discovery, release, and first-pass review outputs remain repository-local and bounded by the evidence labels, limitations, hold-out rules, and any promoted discovery-snapshot freeze recorded in their generated packages."
   - version: "v1.0.0"
     name: "Open Science Release"
@@ -699,6 +699,19 @@ projects:
     dependencies: ["0035", "0043", "0048", "0049", "0050"]
     tags: [governance, discovery, review, clagn, scientific-rigor]
     notes: "This package narrows first-pass wave assignment to the repaired transition-support contract while preserving repository-local scope, manual review, and real-data-rerun requirements."
+  - id: "0052"
+    title: "Reviewed Primary-Wave Real-Data Rerun Package"
+    summary: "Materialize a repository-local rerun package for manually advanced primary-wave candidates with explicit baseline-versus-rerun comparisons."
+    status: active
+    priority: high
+    release: "v0.3.0"
+    files:
+      spec: ark/specs/0052-reviewed-primary-wave-real-data-rerun-package.md
+      plan: ark/plans/0052-reviewed-primary-wave-real-data-rerun-package.md
+      review: ark/playbooks/0052-reviewed-primary-wave-real-data-rerun-package.md
+    dependencies: ["0035", "0043", "0048", "0049", "0050", "0051"]
+    tags: [rerun, discovery, review, provenance, scientific-rigor]
+    notes: "This package freezes the reviewed rerun shortlist and compares rerun candidate bundles back to the promoted snapshot without weakening the repository-local claims boundary."
 ```
 ## Authority Notes
 

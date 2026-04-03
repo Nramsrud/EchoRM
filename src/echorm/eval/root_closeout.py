@@ -305,9 +305,7 @@ def _discovery_object_summary(record: DiscoveryHoldoutRecord, run_id: str) -> JS
         "anomaly_category": record.anomaly_category,
         "holdout_policy": record.holdout_policy,
         "dataset_complete": bool(record.query_params.get("dataset_complete", True)),
-        "alignment_eligible": bool(
-            record.query_params.get("alignment_eligible", True)
-        ),
+        "alignment_eligible": bool(record.query_params.get("alignment_eligible", True)),
         "state_transition_supported": bool(
             record.query_params.get("state_transition_supported", True)
         ),
@@ -329,6 +327,244 @@ def _discovery_object_summary(record: DiscoveryHoldoutRecord, run_id: str) -> JS
         "artifact_paths": _artifact_paths(run_id, "objects", record.object_uid),
         "notes": list(record.notes),
     }
+
+
+DISCOVERY_CANDIDATE_LIMITATIONS = (
+    "hold-out discovery evidence is bounded by the frozen public hold-out slice "
+    "and requires manual scientific review",
+)
+
+
+def _build_discovery_candidate_payload(
+    *,
+    record: DiscoveryHoldoutRecord,
+    run_id: str,
+    limitations: tuple[str, ...] = DISCOVERY_CANDIDATE_LIMITATIONS,
+) -> tuple[
+    JSONDict,
+    list[dict[str, object]],
+    str,
+    tuple[float, ...],
+    tuple[float, ...],
+    str,
+]:
+    raw_lightcurve_path = Path(str(record.query_params.get("raw_lightcurve_path", "")))
+    timeline_rows = [
+        {
+            "mjd": float(str(row.get("mjd", 0.0))),
+            "mag": float(str(row.get("mag", 0.0))),
+            "magerr": float(str(row.get("magerr", 0.0))),
+            "filtercode": str(row.get("filtercode", "")),
+            "state_window": (
+                "pre"
+                if float(str(row.get("mjd", 0.0)))
+                <= float(str(record.query_params.get("split_mjd", 0.0)))
+                else "post"
+            ),
+        }
+        for row in _read_csv_rows(raw_lightcurve_path)
+    ]
+    pre_series = tuple(
+        max(0.0, 22.0 - float(str(row["mag"])))
+        for row in timeline_rows
+        if str(row["state_window"]) == "pre"
+    )
+    post_series = tuple(
+        max(0.0, 22.0 - float(str(row["mag"])))
+        for row in timeline_rows
+        if str(row["state_window"]) == "post"
+    )
+    score = rank_anomaly(
+        object_uid=record.object_uid,
+        lag_outlier=record.lag_outlier,
+        line_response_outlier=record.line_response_outlier,
+        sonification_outlier=record.sonification_outlier,
+        is_holdout=record.holdout_policy == "holdout_only_no_optimization",
+        evidence_level=record.evidence_level,
+        method_support_count=len(record.benchmark_links),
+        review_priority="high" if record.lag_outlier >= 0.8 else "medium",
+    )
+    transition = analyze_clagn_transition(
+        object_uid=record.object_uid,
+        pre_state_lag=record.pre_state_lag,
+        post_state_lag=record.post_state_lag,
+        pre_line_flux=record.pre_line_flux,
+        post_line_flux=record.post_line_flux,
+        alignment_eligible=bool(record.query_params.get("alignment_eligible", True)),
+        state_transition_supported=bool(
+            record.query_params.get("state_transition_supported", True)
+        ),
+        alignment_status=str(
+            record.query_params.get("state_window_alignment", "complete")
+        ),
+        evidence_level=record.evidence_level,
+    )
+    candidate = build_candidate(
+        score=score,
+        transition=transition,
+        canonical_name=record.canonical_name,
+        benchmark_links=record.benchmark_links,
+        limitations=limitations,
+    )
+    memo = build_candidate_memo(candidate)
+    candidate_payload = candidate.to_dict()
+    candidate_payload["transition"] = transition.to_dict()
+    candidate_payload["memo_path"] = (
+        f"{run_id}/candidates/{candidate.object_uid}/memo.md"
+    )
+    candidate_payload["artifact_paths"] = {
+        "raw_lightcurve": str(raw_lightcurve_path),
+        "timeline_csv": f"{run_id}/candidates/{candidate.object_uid}/timeline.csv",
+        "timeline_svg": f"{run_id}/candidates/{candidate.object_uid}/timeline.svg",
+        "pre_state_audio": f"{run_id}/candidates/{candidate.object_uid}/pre_state.wav",
+        "post_state_audio": (
+            f"{run_id}/candidates/{candidate.object_uid}/post_state.wav"
+        ),
+        "gallery": f"{run_id}/candidates/{candidate.object_uid}/gallery.md",
+    }
+    dataset_complete = bool(record.query_params.get("dataset_complete", True))
+    candidate_payload["dataset_completeness"] = {
+        "complete": dataset_complete,
+        "alignment_eligible": bool(
+            record.query_params.get("alignment_eligible", dataset_complete)
+        ),
+        "state_transition_supported": bool(
+            record.query_params.get("state_transition_supported", True)
+        ),
+        "state_window_alignment": str(
+            record.query_params.get("state_window_alignment", "complete")
+        ),
+        "alignment_exclusion_reason": str(
+            record.query_params.get("alignment_exclusion_reason", "")
+        ),
+        "state_transition_exclusion_reason": str(
+            record.query_params.get("state_transition_exclusion_reason", "")
+        ),
+        "split_mjd": float(str(record.query_params.get("split_mjd", 0.0))),
+        "lightcurve_min_mjd": float(
+            str(record.query_params.get("lightcurve_min_mjd", 0.0))
+        ),
+        "lightcurve_max_mjd": float(
+            str(record.query_params.get("lightcurve_max_mjd", 0.0))
+        ),
+        "pre_window_row_count": int(
+            str(record.query_params.get("pre_window_row_count", 0))
+        ),
+        "post_window_row_count": int(
+            str(record.query_params.get("post_window_row_count", 0))
+        ),
+        "pre_window_g_row_count": int(
+            str(record.query_params.get("pre_window_g_row_count", 0))
+        ),
+        "pre_window_r_row_count": int(
+            str(record.query_params.get("pre_window_r_row_count", 0))
+        ),
+        "post_window_g_row_count": int(
+            str(record.query_params.get("post_window_g_row_count", 0))
+        ),
+        "post_window_r_row_count": int(
+            str(record.query_params.get("post_window_r_row_count", 0))
+        ),
+        "state_window_support_score": int(
+            str(record.query_params.get("state_window_support_score", 0))
+        ),
+        "pre_window_gap_days": float(
+            str(record.query_params.get("pre_window_gap_days", 0.0))
+        ),
+        "post_window_gap_days": float(
+            str(record.query_params.get("post_window_gap_days", 0.0))
+        ),
+        "raw_lightcurve_source": str(
+            record.query_params.get("raw_lightcurve_source", "")
+        ),
+    }
+    candidate_payload["transition_alignment"] = {
+        "state_sequence": _dict_list(record.query_params, "state_sequence"),
+        "selected_pair": _mapping_value(record.query_params, "selected_pair"),
+        "alignment_status": str(
+            record.query_params.get("state_window_alignment", "complete")
+        ),
+        "alignment_eligible": bool(
+            record.query_params.get("alignment_eligible", dataset_complete)
+        ),
+        "state_transition_supported": bool(
+            record.query_params.get("state_transition_supported", True)
+        ),
+        "alignment_exclusion_reason": str(
+            record.query_params.get("alignment_exclusion_reason", "")
+        ),
+        "state_transition_exclusion_reason": str(
+            record.query_params.get("state_transition_exclusion_reason", "")
+        ),
+    }
+    candidate_payload["timeline_row_count"] = len(timeline_rows)
+    timeline_csv_rows: list[dict[str, object]] = [
+        {
+            "mjd": row["mjd"],
+            "mag": row["mag"],
+            "magerr": row["magerr"],
+            "filtercode": row["filtercode"],
+            "state_window": row["state_window"],
+        }
+        for row in timeline_rows
+    ]
+    fallback_series = (
+        pre_series
+        or post_series
+        or tuple(float(str(row["mag"])) for row in timeline_rows[:64])
+    )
+    rendered_series = pre_series or fallback_series
+    rerendered_series = post_series or fallback_series
+    gallery_md = "\n".join(
+        [
+            f"# {record.canonical_name}",
+            "",
+            f"- Raw lightcurve: {raw_lightcurve_path}",
+            f"- Timeline rows: {len(timeline_rows)}",
+            f"- Pre-state lag proxy: {record.pre_state_lag}",
+            f"- Post-state lag proxy: {record.post_state_lag}",
+        ]
+    )
+    return (
+        candidate_payload,
+        timeline_csv_rows,
+        memo,
+        _series_to_audio(rendered_series),
+        _series_to_audio(rerendered_series),
+        gallery_md,
+    )
+
+
+def materialize_discovery_candidate_bundle(
+    *,
+    record: DiscoveryHoldoutRecord,
+    run_id: str,
+    run_dir: Path,
+    limitations: tuple[str, ...] = DISCOVERY_CANDIDATE_LIMITATIONS,
+) -> JSONDict:
+    candidate_payload, timeline_csv_rows, memo, pre_audio, post_audio, gallery_md = (
+        _build_discovery_candidate_payload(
+            record=record,
+            run_id=run_id,
+            limitations=limitations,
+        )
+    )
+    candidate_dir = run_dir / "candidates" / str(candidate_payload["object_uid"])
+    candidate_dir.mkdir(parents=True, exist_ok=True)
+    _write_csv(candidate_dir / "timeline.csv", timeline_csv_rows)
+    (candidate_dir / "timeline.svg").write_text(
+        _discovery_timeline_svg(
+            str(candidate_payload["canonical_name"]), timeline_csv_rows
+        ),
+        encoding="utf-8",
+    )
+    _write_pcm_wav(candidate_dir / "pre_state.wav", samples=pre_audio)
+    _write_pcm_wav(candidate_dir / "post_state.wav", samples=post_audio)
+    (candidate_dir / "gallery.md").write_text(gallery_md, encoding="utf-8")
+    _write_json(candidate_dir / "index.json", candidate_payload)
+    (candidate_dir / "memo.md").write_text(memo, encoding="utf-8")
+    _write_markdown(candidate_dir / "summary.md", memo)
+    return candidate_payload
 
 
 def _build_literal_object_payload(
@@ -430,9 +666,7 @@ def materialize_advanced_rigor_package(
             object_record=object_record,
             run_id=run_id,
             run_dir=run_dir,
-            include_advanced=(
-                object_record.object_uid == "ngc5548"
-            ),
+            include_advanced=(object_record.object_uid == "ngc5548"),
         )
         payloads.append(payload)
         summaries.append(summary)
@@ -983,9 +1217,8 @@ def materialize_optimization_closeout_package(
             )
             dominated = False
             for other_object in scorecards:
-                if (
-                    other_object is scorecard_object
-                    or not isinstance(other_object, dict)
+                if other_object is scorecard_object or not isinstance(
+                    other_object, dict
                 ):
                     continue
                 other = ObjectiveScorecard(
@@ -1393,218 +1626,22 @@ def materialize_discovery_analysis_package(
     complete_candidate_count = 0
     transition_supported_candidate_count = 0
     for record in discovery_records:
-        raw_lightcurve_path = Path(
-            str(record.query_params.get("raw_lightcurve_path", ""))
+        candidate_payload = materialize_discovery_candidate_bundle(
+            record=record,
+            run_id=run_id,
+            run_dir=run_dir,
         )
-        timeline_rows = [
-            {
-                "mjd": float(str(row.get("mjd", 0.0))),
-                "mag": float(str(row.get("mag", 0.0))),
-                "magerr": float(str(row.get("magerr", 0.0))),
-                "filtercode": str(row.get("filtercode", "")),
-                "state_window": (
-                    "pre"
-                    if float(str(row.get("mjd", 0.0)))
-                    <= float(str(record.query_params.get("split_mjd", 0.0)))
-                    else "post"
-                ),
-            }
-            for row in _read_csv_rows(raw_lightcurve_path)
-        ]
-        pre_series = tuple(
-            max(0.0, 22.0 - float(str(row["mag"])))
-            for row in timeline_rows
-            if str(row["state_window"]) == "pre"
-        )
-        post_series = tuple(
-            max(0.0, 22.0 - float(str(row["mag"])))
-            for row in timeline_rows
-            if str(row["state_window"]) == "post"
-        )
-        score = rank_anomaly(
-            object_uid=record.object_uid,
-            lag_outlier=record.lag_outlier,
-            line_response_outlier=record.line_response_outlier,
-            sonification_outlier=record.sonification_outlier,
-            is_holdout=record.holdout_policy == "holdout_only_no_optimization",
-            evidence_level=record.evidence_level,
-            method_support_count=len(record.benchmark_links),
-            review_priority="high" if record.lag_outlier >= 0.8 else "medium",
-        )
-        transition = analyze_clagn_transition(
-            object_uid=record.object_uid,
-            pre_state_lag=record.pre_state_lag,
-            post_state_lag=record.post_state_lag,
-            pre_line_flux=record.pre_line_flux,
-            post_line_flux=record.post_line_flux,
-            alignment_eligible=bool(
-                record.query_params.get("alignment_eligible", True)
-            ),
-            state_transition_supported=bool(
-                record.query_params.get("state_transition_supported", True)
-            ),
-            alignment_status=str(
-                record.query_params.get("state_window_alignment", "complete")
-            ),
-            evidence_level=record.evidence_level,
-        )
-        candidate = build_candidate(
-            score=score,
-            transition=transition,
-            canonical_name=record.canonical_name,
-            benchmark_links=record.benchmark_links,
-            limitations=(
-                "hold-out discovery evidence is bounded by the frozen public "
-                "hold-out slice and requires manual scientific review",
-            ),
-        )
-        memo = build_candidate_memo(candidate)
-        category_counts[candidate.anomaly_category] = (
-            category_counts.get(candidate.anomaly_category, 0) + 1
-        )
-        candidate_dir = run_dir / "candidates" / candidate.object_uid
-        candidate_dir.mkdir(parents=True, exist_ok=True)
-        timeline_csv_rows: list[dict[str, object]] = [
-            {
-                "mjd": row["mjd"],
-                "mag": row["mag"],
-                "magerr": row["magerr"],
-                "filtercode": row["filtercode"],
-                "state_window": row["state_window"],
-            }
-            for row in timeline_rows
-        ]
-        _write_csv(candidate_dir / "timeline.csv", timeline_csv_rows)
-        (candidate_dir / "timeline.svg").write_text(
-            _discovery_timeline_svg(record.canonical_name, timeline_csv_rows),
-            encoding="utf-8",
-        )
-        fallback_series = (
-            pre_series
-            or post_series
-            or tuple(float(str(row["mag"])) for row in timeline_rows[:64])
-        )
-        _write_pcm_wav(
-            candidate_dir / "pre_state.wav",
-            samples=_series_to_audio(pre_series or fallback_series),
-        )
-        _write_pcm_wav(
-            candidate_dir / "post_state.wav",
-            samples=_series_to_audio(post_series or fallback_series),
-        )
-        gallery_md = "\n".join(
-            [
-                f"# {record.canonical_name}",
-                "",
-                f"- Raw lightcurve: {raw_lightcurve_path}",
-                f"- Timeline rows: {len(timeline_rows)}",
-                f"- Pre-state lag proxy: {record.pre_state_lag}",
-                f"- Post-state lag proxy: {record.post_state_lag}",
-            ]
-        )
-        (candidate_dir / "gallery.md").write_text(gallery_md, encoding="utf-8")
-        candidate_payload = candidate.to_dict()
-        candidate_payload["transition"] = transition.to_dict()
-        candidate_payload["memo_path"] = (
-            f"{run_id}/candidates/{candidate.object_uid}/memo.md"
-        )
-        candidate_payload["artifact_paths"] = {
-            "raw_lightcurve": str(raw_lightcurve_path),
-            "timeline_csv": f"{run_id}/candidates/{candidate.object_uid}/timeline.csv",
-            "timeline_svg": f"{run_id}/candidates/{candidate.object_uid}/timeline.svg",
-            "pre_state_audio": (
-                f"{run_id}/candidates/{candidate.object_uid}/pre_state.wav"
-            ),
-            "post_state_audio": (
-                f"{run_id}/candidates/{candidate.object_uid}/post_state.wav"
-            ),
-            "gallery": f"{run_id}/candidates/{candidate.object_uid}/gallery.md",
-        }
-        dataset_complete = bool(record.query_params.get("dataset_complete", True))
-        candidate_payload["dataset_completeness"] = {
-            "complete": dataset_complete,
-            "alignment_eligible": bool(
-                record.query_params.get("alignment_eligible", dataset_complete)
-            ),
-            "state_transition_supported": bool(
-                record.query_params.get("state_transition_supported", True)
-            ),
-            "state_window_alignment": str(
-                record.query_params.get("state_window_alignment", "complete")
-            ),
-            "alignment_exclusion_reason": str(
-                record.query_params.get("alignment_exclusion_reason", "")
-            ),
-            "state_transition_exclusion_reason": str(
-                record.query_params.get("state_transition_exclusion_reason", "")
-            ),
-            "split_mjd": float(str(record.query_params.get("split_mjd", 0.0))),
-            "lightcurve_min_mjd": float(
-                str(record.query_params.get("lightcurve_min_mjd", 0.0))
-            ),
-            "lightcurve_max_mjd": float(
-                str(record.query_params.get("lightcurve_max_mjd", 0.0))
-            ),
-            "pre_window_row_count": int(
-                str(record.query_params.get("pre_window_row_count", 0))
-            ),
-            "post_window_row_count": int(
-                str(record.query_params.get("post_window_row_count", 0))
-            ),
-            "pre_window_g_row_count": int(
-                str(record.query_params.get("pre_window_g_row_count", 0))
-            ),
-            "pre_window_r_row_count": int(
-                str(record.query_params.get("pre_window_r_row_count", 0))
-            ),
-            "post_window_g_row_count": int(
-                str(record.query_params.get("post_window_g_row_count", 0))
-            ),
-            "post_window_r_row_count": int(
-                str(record.query_params.get("post_window_r_row_count", 0))
-            ),
-            "state_window_support_score": int(
-                str(record.query_params.get("state_window_support_score", 0))
-            ),
-            "pre_window_gap_days": float(
-                str(record.query_params.get("pre_window_gap_days", 0.0))
-            ),
-            "post_window_gap_days": float(
-                str(record.query_params.get("post_window_gap_days", 0.0))
-            ),
-            "raw_lightcurve_source": str(
-                record.query_params.get("raw_lightcurve_source", "")
-            ),
-        }
-        candidate_payload["transition_alignment"] = {
-            "state_sequence": _dict_list(record.query_params, "state_sequence"),
-            "selected_pair": _mapping_value(record.query_params, "selected_pair"),
-            "alignment_status": str(
-                record.query_params.get("state_window_alignment", "complete")
-            ),
-            "alignment_eligible": bool(
-                record.query_params.get("alignment_eligible", dataset_complete)
-            ),
-            "state_transition_supported": bool(
-                record.query_params.get("state_transition_supported", True)
-            ),
-            "alignment_exclusion_reason": str(
-                record.query_params.get("alignment_exclusion_reason", "")
-            ),
-            "state_transition_exclusion_reason": str(
-                record.query_params.get("state_transition_exclusion_reason", "")
-            ),
-        }
-        candidate_payload["timeline_row_count"] = len(timeline_rows)
         candidates.append(candidate_payload)
-        _write_json(candidate_dir / "index.json", candidate_payload)
-        (candidate_dir / "memo.md").write_text(memo, encoding="utf-8")
-        _write_markdown(candidate_dir / "summary.md", memo)
-        if timeline_rows:
+        category_counts[str(candidate_payload["anomaly_category"])] = (
+            category_counts.get(str(candidate_payload["anomaly_category"]), 0) + 1
+        )
+        if int(str(candidate_payload.get("timeline_row_count", 0))) > 0:
             raw_lightcurve_count += 1
-        if dataset_complete:
+        dataset_completeness = _mapping_value(candidate_payload, "dataset_completeness")
+        if bool(dataset_completeness.get("complete", True)):
             complete_candidate_count += 1
-        if bool(record.query_params.get("state_transition_supported", True)):
+        transition_payload = _mapping_value(candidate_payload, "transition")
+        if bool(transition_payload.get("state_transition_supported", True)):
             transition_supported_candidate_count += 1
     payload = _package_header(
         run_id=run_id,
@@ -2047,6 +2084,7 @@ def materialize_release_closeout_package(
         "- methods, catalog, and case-study narratives derived from tracked "
         "artifacts\n"
     )
+
     def _case_study_block(bundle: Mapping[str, object]) -> str:
         artifact_paths = _mapping_value(bundle, "artifact_paths")
         return "\n".join(
@@ -2060,6 +2098,7 @@ def materialize_release_closeout_package(
                 f"- Audio: {artifact_paths.get('science_audio', '')}",
             ]
         )
+
     methods_results_lines = [
         (
             f"- {row['canonical_name']}: mean_abs_error={row['mean_abs_error']}, "

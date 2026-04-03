@@ -818,10 +818,7 @@ def _select_discovery_state_alignment(
         "state_transition_supported": state_transition_supported,
         "alignment_status": str(selected["alignment_status"]),
         "support_score": _as_int(selected["support_score"]),
-        **{
-            str(key): value
-            for key, value in selected_alignment.items()
-        },
+        **{str(key): value for key, value in selected_alignment.items()},
     }
     return {
         "state_sequence": state_sequence,
@@ -1001,10 +998,7 @@ def _cached_vizier_rows(
     _write_csv(
         cache_path,
         [
-            {
-                field_name: row.get(field_name, "")
-                for field_name in field_names
-            }
+            {field_name: row.get(field_name, "") for field_name in field_names}
             for row in rows
         ],
     )
@@ -1255,6 +1249,8 @@ def load_literal_silver_full_catalog_manifest(
 
 def load_literal_discovery_holdout_records(
     repo_root: Path,
+    *,
+    selected_object_uids: tuple[str, ...] | None = None,
 ) -> tuple[DiscoveryHoldoutRecord, ...]:
     """Load a real published CLQ hold-out catalog slice for root closeout."""
     table = _cached_vizier_rows(
@@ -1293,6 +1289,9 @@ def load_literal_discovery_holdout_records(
             }
         )
 
+    selected_filter = (
+        frozenset(selected_object_uids) if selected_object_uids is not None else None
+    )
     records: list[DiscoveryHoldoutRecord] = []
     for sdss_name, rows in grouped.items():
         if len(rows) < 2:
@@ -1300,6 +1299,8 @@ def load_literal_discovery_holdout_records(
         rows.sort(key=lambda item: _as_int(item["mjd"]))
         first = rows[0]
         object_uid = sdss_name.lower().replace("j", "clq-")
+        if selected_filter is not None and object_uid not in selected_filter:
+            continue
         raw_path, used_offline_fallback = _download_ztf_lightcurve(
             repo_root,
             object_uid=object_uid,
@@ -1320,10 +1321,7 @@ def load_literal_discovery_holdout_records(
             for row in raw_rows
         ]
         _write_parquet(
-            _raw_root(repo_root)
-            / "ztf"
-            / object_uid
-            / "lightcurve.normalized.parquet",
+            _raw_root(repo_root) / "ztf" / object_uid / "lightcurve.normalized.parquet",
             normalized_rows,
         )
         alignment_record = _select_discovery_state_alignment(rows, raw_rows)
@@ -1406,15 +1404,11 @@ def load_literal_discovery_holdout_records(
                     "split_mjd": split_mjd,
                     "release_id": "ztf-dr24",
                     "dataset_complete": bool(alignment_record["alignment_eligible"]),
-                    "alignment_eligible": bool(
-                        alignment_record["alignment_eligible"]
-                    ),
+                    "alignment_eligible": bool(alignment_record["alignment_eligible"]),
                     "state_transition_supported": bool(
                         alignment_record["state_transition_supported"]
                     ),
-                    "state_window_alignment": str(
-                        alignment_record["alignment_status"]
-                    ),
+                    "state_window_alignment": str(alignment_record["alignment_status"]),
                     "alignment_exclusion_reason": str(
                         alignment_record["alignment_exclusion_reason"]
                     ),
@@ -1478,10 +1472,7 @@ def load_literal_discovery_holdout_records(
                         if used_offline_fallback
                         else "live IRSA lightcurve used"
                     ),
-                    (
-                        "state-window alignment="
-                        f"{alignment_record['alignment_status']}"
-                    ),
+                    (f"state-window alignment={alignment_record['alignment_status']}"),
                     (
                         "selected adjacent pair="
                         f"{selected_pre_epoch.get('mjd', 0)}->"

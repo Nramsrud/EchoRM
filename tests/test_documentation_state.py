@@ -54,6 +54,7 @@ def test_repository_local_package_specs_preserve_bounded_scope() -> None:
         "ark/specs/0049-canonical-discovery-snapshot-promotion-freeze.md",
         "ark/specs/0050-discovery-transition-window-alignment-and-eligibility.md",
         "ark/specs/0051-transition-supported-first-pass-governance-correction.md",
+        "ark/specs/0052-reviewed-primary-wave-real-data-rerun-package.md",
     ):
         assert "repository-local" in _read(path)
 
@@ -154,3 +155,34 @@ def test_first_pass_governance_correction_has_spec_and_review() -> None:
     assert "Directionality check" in review_0051
     assert "Blocking Findings" in review_0051
     assert "Plan Coverage Findings" in review_0051
+
+
+def test_primary_wave_rerun_package_has_spec_plan_and_review() -> None:
+    projectlist = _read("ark/projectlist.md")
+    spec_0052 = _read(
+        "ark/specs/0052-reviewed-primary-wave-real-data-rerun-package.md"
+    )
+    plan_0052 = _read(
+        "ark/plans/0052-reviewed-primary-wave-real-data-rerun-package.md"
+    )
+    review_0052 = _read(
+        "ark/playbooks/0052-reviewed-primary-wave-real-data-rerun-package.md"
+    )
+
+    assert 'id: "0052"' in projectlist
+    assert (
+        "ark/specs/0052-reviewed-primary-wave-real-data-rerun-package.md"
+        in projectlist
+    )
+    assert (
+        "ark/plans/0052-reviewed-primary-wave-real-data-rerun-package.md"
+        in projectlist
+    )
+    assert (
+        "ark/playbooks/0052-reviewed-primary-wave-real-data-rerun-package.md"
+        in projectlist
+    )
+    assert "recommended_rerun_candidates" in spec_0052
+    assert "baseline promoted payload and the rerun candidate payload" in spec_0052
+    assert "baseline promoted payloads and rerun payloads" in review_0052
+    assert "baseline-versus-rerun comparisons" in plan_0052

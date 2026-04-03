@@ -17,6 +17,7 @@ from ..eval.claims_audit import materialize_claims_audit
 from ..eval.discovery_snapshot import materialize_discovery_snapshot_package
 from ..eval.first_benchmark import materialize_first_benchmark_package
 from ..eval.first_pass import materialize_first_pass_review_package
+from ..eval.primary_wave_rerun import materialize_primary_wave_rerun_package
 from ..eval.readiness import materialize_benchmark_readiness_run
 from ..eval.root_closeout import (
     materialize_advanced_rigor_package,
@@ -140,9 +141,28 @@ def build_parser() -> argparse.ArgumentParser:
         "--snapshot-run-id",
         default="discovery_snapshot",
         help=(
-            "Promoted discovery snapshot run identifier required by first-pass "
-            "review."
+            "Promoted discovery snapshot run identifier required by first-pass review."
         ),
+    )
+    primary_wave_rerun_parser = subparsers.add_parser(
+        "primary-wave-rerun",
+        help="Materialize the reviewed primary-wave real-data rerun package.",
+    )
+    primary_wave_rerun_parser.add_argument(
+        "--snapshot-run-id",
+        default="discovery_snapshot",
+        help="Promoted discovery snapshot run identifier required by the rerun.",
+    )
+    primary_wave_rerun_parser.add_argument(
+        "--first-pass-run-id",
+        default="first_pass_review",
+        help="First-pass review run identifier referenced by the rerun package.",
+    )
+    primary_wave_rerun_parser.add_argument(
+        "--manual-review-path",
+        type=Path,
+        default=Path("primary_wave_manual_review/index.json"),
+        help="Path to the local primary-wave manual review artifact index.",
     )
     return parser
 
@@ -310,6 +330,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "first_pass_review" if args.profile == "baseline" else args.profile
             ),
             snapshot_run_id=args.snapshot_run_id,
+        )
+        print(index_path)
+        return 0
+    if args.command == "primary-wave-rerun":
+        index_path = materialize_primary_wave_rerun_package(
+            repo_root=repo_root,
+            artifact_root=artifact_root,
+            run_id=args.run_id,
+            profile=(
+                "primary_wave_rerun" if args.profile == "baseline" else args.profile
+            ),
+            snapshot_run_id=args.snapshot_run_id,
+            first_pass_run_id=args.first_pass_run_id,
+            manual_review_path=args.manual_review_path,
         )
         print(index_path)
         return 0
